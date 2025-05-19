@@ -10,6 +10,7 @@ import SurveyResponse from "./pages/SurveyResponse";
 import Templates from "./pages/Templates";
 import Questions from "./pages/Questions";
 import Reports from "./pages/Reports";
+import Employees from "./pages/Employees";
 import SurveyDetails from "./pages/SurveyDetails";
 import TemplateDetails from "./pages/TemplateDetails";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="templates/:id" element={<TemplateDetails />} />
             <Route path="questions" element={<Questions />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="employees" element={<Employees />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

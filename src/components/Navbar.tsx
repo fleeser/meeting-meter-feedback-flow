@@ -1,7 +1,17 @@
 
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { User, FileText, BarChart, HelpCircle, LogOut, Menu, X, Users, Settings } from "lucide-react";
+import { 
+  FileText, 
+  BarChart, 
+  HelpCircle, 
+  LogOut, 
+  Menu, 
+  X, 
+  Users, 
+  Settings,
+  UserRound 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { User as UserType } from "@/lib/types";
@@ -22,10 +32,11 @@ const Navbar = ({ user }: NavbarProps) => {
   };
 
   const navItems = [
-    { icon: FileText, label: "Surveys", path: "/app" },
-    { icon: Users, label: "Templates", path: "/app/templates" },
-    { icon: Settings, label: "Questions", path: "/app/questions" },
-    { icon: BarChart, label: "Reports", path: "/app/reports" },
+    { icon: FileText, label: "Umfragen", path: "/app" },
+    { icon: Users, label: "Vorlagen", path: "/app/templates" },
+    { icon: Settings, label: "Fragen", path: "/app/questions" },
+    { icon: BarChart, label: "Berichte", path: "/app/reports" },
+    { icon: UserRound, label: "Mitarbeiter", path: "/app/employees" },
   ];
 
   return (
@@ -37,7 +48,7 @@ const Navbar = ({ user }: NavbarProps) => {
     >
       <div className="p-4 flex justify-between items-center border-b border-gray-700">
         <h1 className={cn("font-bold", collapsed ? "hidden" : "text-xl")}>
-          Survey Tool
+          Umfrage-Tool
         </h1>
         <Button
           variant="ghost"
@@ -78,7 +89,7 @@ const Navbar = ({ user }: NavbarProps) => {
       <div className="p-4 border-t border-gray-700">
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-full bg-primary-blue flex items-center justify-center">
-            <User className="h-5 w-5" />
+            <UserRound className="h-5 w-5" />
           </div>
           {!collapsed && (
             <div className="ml-3">
@@ -87,7 +98,7 @@ const Navbar = ({ user }: NavbarProps) => {
                 onClick={handleLogout}
                 className="text-xs text-gray-300 hover:text-white flex items-center mt-1"
               >
-                <LogOut className="h-3 w-3 mr-1" /> Sign out
+                <LogOut className="h-3 w-3 mr-1" /> Abmelden
               </button>
             </div>
           )}

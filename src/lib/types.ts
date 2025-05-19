@@ -1,10 +1,12 @@
-
 export type SurveyStatus = "Draft" | "Active" | "Closed";
 
 export interface User {
   id: string;
   name: string;
   email: string;
+  role?: "Admin" | "Moderator" | "User";
+  department?: string;
+  active?: boolean;
 }
 
 export interface Question {
