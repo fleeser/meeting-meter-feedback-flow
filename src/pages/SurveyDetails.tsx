@@ -36,21 +36,21 @@ const COLORS = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71'];
 // Mock survey data
 const mockSurvey: Survey = {
   id: "1",
-  name: "Project Kickoff Meeting Feedback",
+  name: "Projektstartbesprechung Feedback",
   status: "Active",
   template: { 
     id: "1", 
-    name: "Meeting Feedback", 
+    name: "Besprechungs-Feedback", 
     questions: [], 
     createdAt: "2025-05-10", 
     updatedAt: "2025-05-10", 
     isUsedInSurveys: true 
   },
   questions: [
-    { id: "q1", text: "How would you rate the clarity of communication during the meeting?", createdAt: "", updatedAt: "" },
-    { id: "q2", text: "How effective was the meeting at addressing its stated objectives?", createdAt: "", updatedAt: "" },
-    { id: "q3", text: "How would you rate the efficiency of time usage during the meeting?", createdAt: "", updatedAt: "" },
-    { id: "q4", text: "How well was the meeting facilitated or moderated?", createdAt: "", updatedAt: "" },
+    { id: "q1", text: "Wie würden Sie die Klarheit der Kommunikation während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+    { id: "q2", text: "Wie effektiv war das Meeting bei der Erreichung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
+    { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+    { id: "q4", text: "Wie gut wurde das Meeting moderiert oder geleitet?", createdAt: "", updatedAt: "" },
   ],
   assignedEmployees: [
     { id: "1", name: "John Smith", email: "john@example.com" },
@@ -69,25 +69,25 @@ const mockReport = {
   questionRatings: [
     {
       questionId: "q1",
-      questionText: "How would you rate the clarity of communication during the meeting?",
+      questionText: "Wie würden Sie die Klarheit der Kommunikation während des Meetings bewerten?",
       averageRating: 3.8,
       distribution: { 1: 0, 2: 1, 3: 4, 4: 7 }
     },
     {
       questionId: "q2",
-      questionText: "How effective was the meeting at addressing its stated objectives?",
+      questionText: "Wie effektiv war das Meeting bei der Erreichung der angegebenen Ziele?",
       averageRating: 3.2,
       distribution: { 1: 1, 2: 2, 3: 5, 4: 4 }
     },
     {
       questionId: "q3",
-      questionText: "How would you rate the efficiency of time usage during the meeting?",
+      questionText: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?",
       averageRating: 3.0,
       distribution: { 1: 1, 2: 3, 3: 5, 4: 3 }
     },
     {
       questionId: "q4",
-      questionText: "How well was the meeting facilitated or moderated?",
+      questionText: "Wie gut wurde das Meeting moderiert oder geleitet?",
       averageRating: 3.5,
       distribution: { 1: 0, 2: 1, 3: 6, 4: 5 }
     }
@@ -136,8 +136,8 @@ const SurveyDetails = () => {
     navigator.clipboard.writeText(survey.shareLink);
     setCopySuccess(true);
     toast({
-      title: "Link copied!",
-      description: "Survey link copied to clipboard.",
+      title: "Link kopiert!",
+      description: "Umfragelink in die Zwischenablage kopiert.",
     });
     
     setTimeout(() => {
@@ -147,46 +147,46 @@ const SurveyDetails = () => {
 
   const handleDownloadQR = () => {
     toast({
-      title: "QR Code",
-      description: "QR Code download functionality would be implemented here",
+      title: "QR-Code",
+      description: "QR-Code-Download-Funktionalität würde hier implementiert werden",
     });
   };
 
   const handleEditSurvey = () => {
     if (survey?.status !== "Draft") {
       toast({
-        title: "Cannot Edit",
-        description: "Only surveys in Draft status can be fully edited.",
+        title: "Bearbeitung nicht möglich",
+        description: "Nur Umfragen im Entwurfsstatus können vollständig bearbeitet werden.",
         variant: "destructive",
       });
       return;
     }
     
     toast({
-      title: "Edit Survey",
-      description: "This would open the survey editor in a real application",
+      title: "Umfrage bearbeiten",
+      description: "Dies würde in einer echten Anwendung den Umfrage-Editor öffnen",
     });
   };
 
   const handleDeleteSurvey = () => {
     if (survey?.status !== "Draft") {
       toast({
-        title: "Cannot Delete",
-        description: "Only surveys in Draft status can be deleted.",
+        title: "Löschen nicht möglich",
+        description: "Nur Umfragen im Entwurfsstatus können gelöscht werden.",
         variant: "destructive",
       });
       return;
     }
     
     toast({
-      description: "This would show a delete confirmation in a real application",
+      description: "Dies würde in einer echten Anwendung eine Löschbestätigung anzeigen",
     });
   };
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-lg">Loading survey...</p>
+        <p className="text-lg">Umfrage wird geladen...</p>
       </div>
     );
   }
@@ -194,7 +194,7 @@ const SurveyDetails = () => {
   if (!survey) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-lg text-red-500">Survey not found</p>
+        <p className="text-lg text-red-500">Umfrage nicht gefunden</p>
       </div>
     );
   }
@@ -209,7 +209,7 @@ const SurveyDetails = () => {
               {survey.status}
             </Badge>
             <span className="text-sm text-gray-500">
-              Based on: {survey.template.name}
+              Basierend auf: {survey.template.name}
             </span>
           </div>
         </div>
@@ -222,7 +222,7 @@ const SurveyDetails = () => {
             disabled={survey.status !== "Draft"}
           >
             <Edit className="h-4 w-4 mr-2" />
-            Edit
+            Bearbeiten
           </Button>
           <Button 
             variant="outline" 
@@ -232,7 +232,7 @@ const SurveyDetails = () => {
             disabled={survey.status !== "Draft"}
           >
             <Trash className="h-4 w-4 mr-2" />
-            Delete
+            Löschen
           </Button>
         </div>
       </div>
@@ -240,18 +240,18 @@ const SurveyDetails = () => {
       <Tabs defaultValue="details" className="flex-grow">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="share">Share</TabsTrigger>
-          <TabsTrigger value="results" disabled={survey.responses === 0}>Results</TabsTrigger>
+          <TabsTrigger value="share">Teilen</TabsTrigger>
+          <TabsTrigger value="results" disabled={survey.responses === 0}>Ergebnisse</TabsTrigger>
         </TabsList>
         
         <TabsContent value="details" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Survey Information</CardTitle>
+              <CardTitle>Umfrageinformationen</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="font-medium text-gray-700">Assigned Employees</h3>
+                <h3 className="font-medium text-gray-700">Zugewiesene Mitarbeiter</h3>
                 <div className="flex mt-2 space-x-2">
                   {survey.assignedEmployees.map(employee => (
                     <div key={employee.id} className="flex items-center p-2 bg-gray-50 rounded-md">
@@ -267,7 +267,7 @@ const SurveyDetails = () => {
               </div>
               
               <div>
-                <h3 className="font-medium text-gray-700">Questions</h3>
+                <h3 className="font-medium text-gray-700">Fragen</h3>
                 <div className="mt-2 space-y-2">
                   {survey.questions.map((question, index) => (
                     <div key={question.id} className="p-3 bg-gray-50 rounded-md">
@@ -286,14 +286,14 @@ const SurveyDetails = () => {
         <TabsContent value="share" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Share Survey</CardTitle>
+              <CardTitle>Umfrage teilen</CardTitle>
               <CardDescription>
-                Distribute this survey to customers for feedback
+                Verteilen Sie diese Umfrage an Kunden für Feedback
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h3 className="font-medium text-gray-700 mb-2">Survey Link</h3>
+                <h3 className="font-medium text-gray-700 mb-2">Umfragelink</h3>
                 <div className="flex items-center">
                   <div className="flex-grow p-2 bg-gray-50 rounded-l-md truncate text-sm">
                     {survey.shareLink}
@@ -303,13 +303,13 @@ const SurveyDetails = () => {
                     size="sm"
                     onClick={handleCopyLink}
                   >
-                    {copySuccess ? "Copied!" : "Copy"}
+                    {copySuccess ? "Kopiert!" : "Kopieren"}
                   </Button>
                 </div>
               </div>
               
               <div>
-                <h3 className="font-medium text-gray-700 mb-2">QR Code</h3>
+                <h3 className="font-medium text-gray-700 mb-2">QR-Code</h3>
                 <div className="flex justify-center p-6 bg-gray-50 rounded-md">
                   <div className="w-40 h-40 bg-white p-2 flex items-center justify-center">
                     <QrCode size={120} />
@@ -322,7 +322,7 @@ const SurveyDetails = () => {
                     onClick={handleDownloadQR}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download QR Code
+                    QR-Code herunterladen
                   </Button>
                 </div>
               </div>
@@ -336,19 +336,19 @@ const SurveyDetails = () => {
               <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Average Rating</CardTitle>
+                    <CardTitle className="text-lg">Durchschnittliche Bewertung</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-primary-blue">
                       {report.averageRating.toFixed(1)}
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">Out of 4.0 maximum</p>
+                    <p className="text-sm text-gray-500 mt-1">Von 4,0 maximal</p>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Total Responses</CardTitle>
+                    <CardTitle className="text-lg">Gesamtantworten</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-primary-blue">
@@ -359,23 +359,23 @@ const SurveyDetails = () => {
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Completion Rate</CardTitle>
+                    <CardTitle className="text-lg">Abschlussrate</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-primary-blue">
                       {/* This would be calculated in a real app */}
                       100%
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">All respondents completed survey</p>
+                    <p className="text-sm text-gray-500 mt-1">Alle Befragten haben die Umfrage abgeschlossen</p>
                   </CardContent>
                 </Card>
               </div>
               
               <Card>
                 <CardHeader>
-                  <CardTitle>Question Ratings</CardTitle>
+                  <CardTitle>Fragenbewertungen</CardTitle>
                   <CardDescription>
-                    Average ratings and distribution by question
+                    Durchschnittliche Bewertungen und Verteilung nach Fragen
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-8">
@@ -402,15 +402,15 @@ const SurveyDetails = () => {
                                 width: `${percentage}%`,
                                 minWidth: count > 0 ? '1rem' : '0'
                               }}
-                              title={`Rating ${rating}: ${count} responses (${percentage.toFixed(1)}%)`}
+                              title={`Bewertung ${rating}: ${count} Antworten (${percentage.toFixed(1)}%)`}
                             />
                           );
                         })}
                       </div>
                       
                       <div className="flex justify-between text-xs text-gray-500">
-                        <span>Poor (1)</span>
-                        <span>Excellent (4)</span>
+                        <span>Schlecht (1)</span>
+                        <span>Ausgezeichnet (4)</span>
                       </div>
                     </div>
                   ))}
@@ -419,9 +419,9 @@ const SurveyDetails = () => {
               
               <Card>
                 <CardHeader>
-                  <CardTitle>Employee Ratings</CardTitle>
+                  <CardTitle>Mitarbeiterbewertungen</CardTitle>
                   <CardDescription>
-                    Average ratings for assigned employees
+                    Durchschnittliche Bewertungen für zugewiesene Mitarbeiter
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
