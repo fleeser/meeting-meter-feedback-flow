@@ -30,6 +30,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Survey } from "@/lib/types";
 
+// Define the COLORS array for rating visualization
+const COLORS = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71'];
+
 // Mock survey data
 const mockSurvey: Survey = {
   id: "1",
