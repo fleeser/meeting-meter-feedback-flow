@@ -1,3 +1,4 @@
+
 export type SurveyStatus = "Draft" | "Active" | "Closed";
 
 export interface User {
@@ -7,6 +8,11 @@ export interface User {
   role?: "Admin" | "Moderator" | "User";
   department?: string;
   active?: boolean;
+  position?: string;
+  joinDate?: string;
+  profileImage?: string;
+  assignedSurveys?: string[];
+  completedSurveys?: string[];
 }
 
 export interface Question {
@@ -36,14 +42,19 @@ export interface Survey {
   createdAt: string;
   updatedAt: string;
   shareLink: string;
+  dueDate?: string;
+  description?: string;
+  isAnonymous?: boolean;
 }
 
 export interface SurveyResponse {
   id: string;
   surveyId: string;
+  userId?: string;
   answers: {
     questionId: string;
     rating: number;
+    comment?: string;
   }[];
   submittedAt: string;
 }
@@ -66,5 +77,14 @@ export interface SurveyReport {
     employeeId: string;
     employeeName: string;
     averageRating: number;
+  }[];
+  progressOverTime?: {
+    date: string;
+    averageRating: number;
+  }[];
+  departmentComparison?: {
+    department: string;
+    averageRating: number;
+    responseRate: number;
   }[];
 }

@@ -4,9 +4,27 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { PlusCircle, Search } from "lucide-react";
-import { Template } from "@/lib/types";
+import { PlusCircle, Search, X, Save, Plus, Trash2 } from "lucide-react";
+import { Template, Question } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // Mock data for demonstration
 const mockTemplates: Template[] = [
@@ -14,9 +32,9 @@ const mockTemplates: Template[] = [
     id: "1",
     name: "Meeting Feedback",
     questions: [
-      { id: "q1", text: "How would you rate the clarity of communication during the meeting?", createdAt: "", updatedAt: "" },
-      { id: "q2", text: "How effective was the meeting at addressing its stated objectives?", createdAt: "", updatedAt: "" },
-      { id: "q3", text: "How would you rate the efficiency of time usage during the meeting?", createdAt: "", updatedAt: "" },
+      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+      { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
+      { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
     ],
     createdAt: "2025-04-15T14:30:00Z",
     updatedAt: "2025-04-15T14:30:00Z",
@@ -26,8 +44,8 @@ const mockTemplates: Template[] = [
     id: "2",
     name: "Team Meeting",
     questions: [
-      { id: "q1", text: "How would you rate the clarity of communication during the meeting?", createdAt: "", updatedAt: "" },
-      { id: "q4", text: "How well was the meeting facilitated or moderated?", createdAt: "", updatedAt: "" },
+      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+      { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
     ],
     createdAt: "2025-04-18T10:15:00Z",
     updatedAt: "2025-04-18T10:15:00Z",
@@ -35,16 +53,36 @@ const mockTemplates: Template[] = [
   },
 ];
 
+// Mock questions for the question bank
+const mockQuestionBank: Question[] = [
+  { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+  { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
+  { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
+  { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
+  { id: "q5", text: "Wie zufrieden sind Sie mit der Teamleistung?", createdAt: "", updatedAt: "" },
+  { id: "q6", text: "Wie würden Sie die Arbeitsbedingungen bewerten?", createdAt: "", updatedAt: "" },
+  { id: "q7", text: "Wie zufrieden sind Sie mit der Kommunikation in Ihrem Team?", createdAt: "", updatedAt: "" },
+];
+
 const Templates = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [newTemplate, setNewTemplate] = useState<Partial<Template>>({
+    name: "",
+    questions: []
+  });
+  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
+  const [selectedQuestion, setSelectedQuestion] = useState<string>("");
+  const [newQuestion, setNewQuestion] = useState<string>("");
 
   useEffect(() => {
     // This would be an API call in a real app
     setTimeout(() => {
       setTemplates(mockTemplates);
+      setAvailableQuestions(mockQuestionBank);
       setLoading(false);
     }, 1000);
   }, []);
@@ -54,16 +92,108 @@ const Templates = () => {
   );
 
   const handleCreateTemplate = () => {
+    setNewTemplate({
+      name: "",
+      questions: []
+    });
+    setOpenCreateDialog(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!newTemplate.name) {
+      toast({
+        title: "Fehler",
+        description: "Vorlagenname ist erforderlich",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newTemplate.questions || newTemplate.questions.length === 0) {
+      toast({
+        title: "Fehler",
+        description: "Mindestens eine Frage ist erforderlich",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const id = `${templates.length + 1}`;
+    const now = new Date().toISOString();
+    const template: Template = {
+      id,
+      name: newTemplate.name,
+      questions: newTemplate.questions as Question[],
+      createdAt: now,
+      updatedAt: now,
+      isUsedInSurveys: false
+    };
+
+    setTemplates([...templates, template]);
+    setOpenCreateDialog(false);
     toast({
-      title: "Create Template",
-      description: "This would open the template creation form in a real application",
+      description: `Vorlage "${template.name}" wurde erstellt`,
+    });
+  };
+
+  const handleAddExistingQuestion = () => {
+    if (!selectedQuestion) return;
+    
+    const question = availableQuestions.find(q => q.id === selectedQuestion);
+    if (!question) return;
+    
+    if (newTemplate.questions?.some(q => q.id === question.id)) {
+      toast({
+        description: "Diese Frage ist bereits in der Vorlage enthalten",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setNewTemplate({
+      ...newTemplate,
+      questions: [...(newTemplate.questions || []), question]
+    });
+    
+    setSelectedQuestion("");
+  };
+
+  const handleAddNewQuestion = () => {
+    if (!newQuestion.trim()) {
+      toast({
+        description: "Bitte geben Sie eine Frage ein",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const now = new Date().toISOString();
+    const newQuestionObj: Question = {
+      id: `new-${Date.now()}`,
+      text: newQuestion,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    setNewTemplate({
+      ...newTemplate,
+      questions: [...(newTemplate.questions || []), newQuestionObj]
+    });
+    
+    setNewQuestion("");
+  };
+
+  const handleRemoveQuestion = (questionId: string) => {
+    setNewTemplate({
+      ...newTemplate,
+      questions: newTemplate.questions?.filter(q => q.id !== questionId) || []
     });
   };
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-lg">Loading templates...</p>
+        <p className="text-lg">Vorlagen werden geladen...</p>
       </div>
     );
   }
@@ -71,13 +201,13 @@ const Templates = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Survey Templates</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Umfragevorlagen</h1>
         <Button 
           onClick={handleCreateTemplate}
           className="bg-primary-blue hover:bg-primary-dark"
         >
           <PlusCircle className="h-4 w-4 mr-2" />
-          Create Template
+          Vorlage erstellen
         </Button>
       </div>
 
@@ -85,7 +215,7 @@ const Templates = () => {
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search templates..."
+            placeholder="Vorlagen durchsuchen..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -97,18 +227,18 @@ const Templates = () => {
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-200 rounded-lg">
           <div className="text-gray-500">
             <Search className="h-12 w-12 mx-auto mb-4" />
-            <h3 className="text-lg font-medium">No templates found</h3>
+            <h3 className="text-lg font-medium">Keine Vorlagen gefunden</h3>
             <p className="mt-1">
               {searchQuery
-                ? "Try changing your search criteria." 
-                : "Create your first template to get started."}
+                ? "Versuchen Sie, Ihre Suchkriterien zu ändern." 
+                : "Erstellen Sie Ihre erste Vorlage, um zu beginnen."}
             </p>
             <Button 
               onClick={handleCreateTemplate}
               variant="outline" 
               className="mt-4"
             >
-              Create Template
+              Vorlage erstellen
             </Button>
           </div>
         </div>
@@ -122,10 +252,10 @@ const Templates = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-500 mb-2">
-                    {template.questions.length} questions
+                    {template.questions.length} Fragen
                   </p>
                   <p className="text-sm text-gray-500">
-                    {template.isUsedInSurveys ? "Used in surveys" : "Not used in any survey"}
+                    {template.isUsedInSurveys ? "In Umfragen verwendet" : "Nicht in Umfragen verwendet"}
                   </p>
                 </CardContent>
               </Card>
@@ -133,6 +263,116 @@ const Templates = () => {
           ))}
         </div>
       )}
+
+      {/* Create Template Dialog */}
+      <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Neue Vorlage erstellen</DialogTitle>
+            <DialogDescription>
+              Erstellen Sie eine neue Umfragevorlage mit Fragen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="template-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="template-name"
+                value={newTemplate.name || ""}
+                onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                className="col-span-3"
+                placeholder="Namen der Vorlage eingeben"
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-medium mb-2">Fragen hinzufügen</h3>
+              
+              <div className="mb-4">
+                <Label htmlFor="existing-question" className="mb-1 block">
+                  Bestehende Frage auswählen
+                </Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedQuestion}
+                    onValueChange={setSelectedQuestion}
+                  >
+                    <SelectTrigger className="flex-grow">
+                      <SelectValue placeholder="Frage auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableQuestions.map(question => (
+                        <SelectItem key={question.id} value={question.id}>
+                          {question.text.length > 50 ? `${question.text.substring(0, 50)}...` : question.text}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" onClick={handleAddExistingQuestion} disabled={!selectedQuestion}>
+                    <Plus className="mr-1 h-4 w-4" /> Hinzufügen
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <Label htmlFor="new-question" className="mb-1 block">
+                  Neue Frage erstellen
+                </Label>
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    id="new-question"
+                    value={newQuestion}
+                    onChange={(e) => setNewQuestion(e.target.value)}
+                    placeholder="Neue Frage eingeben"
+                    className="resize-none"
+                  />
+                  <Button type="button" onClick={handleAddNewQuestion} disabled={!newQuestion.trim()} className="self-end">
+                    <Plus className="mr-1 h-4 w-4" /> Frage erstellen
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <h3 className="font-medium mb-2">Ausgewählte Fragen ({newTemplate.questions?.length || 0})</h3>
+              
+              {(!newTemplate.questions || newTemplate.questions.length === 0) ? (
+                <p className="text-gray-500 text-sm">Noch keine Fragen ausgewählt.</p>
+              ) : (
+                <div className="space-y-2">
+                  {newTemplate.questions?.map((question, index) => (
+                    <div key={question.id} className="flex justify-between items-center border p-2 rounded-md">
+                      <span className="text-sm mr-2 flex-grow">
+                        <span className="font-medium mr-1">{index + 1}.</span> {question.text}
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleRemoveQuestion(question.id)}
+                        className="h-8 w-8 text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                <X className="mr-2 h-4 w-4" /> Abbrechen
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleSaveTemplate}>
+              <Save className="mr-2 h-4 w-4" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -18,8 +18,36 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UserRound, Plus, Search, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { 
+  UserRound, 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  CheckCircle, 
+  XCircle,
+  X,
+  Save
+} from "lucide-react";
 import { User } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
 
 // Mock data for employees
 const mockEmployees: User[] = [
@@ -30,11 +58,25 @@ const mockEmployees: User[] = [
   { id: "5", name: "Sophie Wagner", email: "sophie.wagner@example.com", role: "User", department: "Support", active: true },
 ];
 
+const departments = ["HR", "IT", "Marketing", "Sales", "Support", "Finance", "Operations"];
+
 const Employees = () => {
   const [employees, setEmployees] = useState<User[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [currentEmployee, setCurrentEmployee] = useState<User | null>(null);
+  const [newEmployee, setNewEmployee] = useState<Partial<User>>({
+    name: "",
+    email: "",
+    role: "User",
+    department: "HR",
+    active: true
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
     // Simulate loading data
@@ -60,23 +102,124 @@ const Employees = () => {
   }, [searchQuery, employees]);
 
   const handleAddEmployee = () => {
-    // This would open a modal dialog in a real implementation
-    console.log("Add employee button clicked");
+    setNewEmployee({
+      name: "",
+      email: "",
+      role: "User",
+      department: "HR",
+      active: true
+    });
+    setOpenAddDialog(true);
+  };
+
+  const handleSaveNewEmployee = () => {
+    if (!newEmployee.name || !newEmployee.email) {
+      toast({
+        title: "Fehler",
+        description: "Name und E-Mail sind erforderlich",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const id = `${employees.length + 1}`;
+    const employee: User = {
+      id,
+      name: newEmployee.name,
+      email: newEmployee.email,
+      role: newEmployee.role as "Admin" | "Moderator" | "User",
+      department: newEmployee.department,
+      active: newEmployee.active
+    };
+
+    setEmployees([...employees, employee]);
+    setOpenAddDialog(false);
+    toast({
+      description: `Mitarbeiter ${employee.name} wurde hinzugefügt`,
+    });
   };
 
   const handleEditEmployee = (id: string) => {
-    // This would open a modal dialog in a real implementation
-    console.log("Edit employee with ID:", id);
+    const employee = employees.find(emp => emp.id === id);
+    if (employee) {
+      setCurrentEmployee(employee);
+      setNewEmployee({
+        name: employee.name,
+        email: employee.email,
+        role: employee.role,
+        department: employee.department,
+        active: employee.active
+      });
+      setOpenEditDialog(true);
+    }
+  };
+
+  const handleSaveEditEmployee = () => {
+    if (!currentEmployee) return;
+    if (!newEmployee.name || !newEmployee.email) {
+      toast({
+        title: "Fehler",
+        description: "Name und E-Mail sind erforderlich",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedEmployees = employees.map(emp => {
+      if (emp.id === currentEmployee.id) {
+        return {
+          ...emp,
+          name: newEmployee.name || emp.name,
+          email: newEmployee.email || emp.email,
+          role: newEmployee.role as "Admin" | "Moderator" | "User" || emp.role,
+          department: newEmployee.department || emp.department,
+          active: newEmployee.active !== undefined ? newEmployee.active : emp.active
+        };
+      }
+      return emp;
+    });
+
+    setEmployees(updatedEmployees);
+    setOpenEditDialog(false);
+    toast({
+      description: `Mitarbeiter ${newEmployee.name} wurde aktualisiert`,
+    });
   };
 
   const handleDeleteEmployee = (id: string) => {
-    // This would open a confirmation dialog in a real implementation
-    console.log("Delete employee with ID:", id);
+    const employee = employees.find(emp => emp.id === id);
+    if (employee) {
+      setCurrentEmployee(employee);
+      setOpenDeleteDialog(true);
+    }
+  };
+
+  const confirmDeleteEmployee = () => {
+    if (!currentEmployee) return;
+    
+    const updatedEmployees = employees.filter(emp => emp.id !== currentEmployee.id);
+    setEmployees(updatedEmployees);
+    setOpenDeleteDialog(false);
+    toast({
+      description: `Mitarbeiter ${currentEmployee.name} wurde gelöscht`,
+    });
   };
 
   const handleToggleActive = (id: string, currentActiveState: boolean) => {
-    // This would update the employee status in a real implementation
-    console.log(`Toggle active status for employee ID ${id} from ${currentActiveState} to ${!currentActiveState}`);
+    const updatedEmployees = employees.map(emp => {
+      if (emp.id === id) {
+        return { ...emp, active: !currentActiveState };
+      }
+      return emp;
+    });
+    setEmployees(updatedEmployees);
+    
+    const employee = employees.find(emp => emp.id === id);
+    if (employee) {
+      toast({
+        description: `Status von ${employee.name} wurde auf ${!currentActiveState ? 'aktiv' : 'inaktiv'} gesetzt`,
+      });
+    }
   };
 
   if (loading) {
@@ -159,7 +302,7 @@ const Employees = () => {
                     <TableCell>{employee.department}</TableCell>
                     <TableCell>
                       {employee.active ? (
-                        <Badge variant="success" className="bg-green-100 text-green-800">
+                        <Badge variant="outline" className="bg-green-100 text-green-800">
                           Aktiv
                         </Badge>
                       ) : (
@@ -209,6 +352,233 @@ const Employees = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Employee Dialog */}
+      <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Neuen Mitarbeiter hinzufügen</DialogTitle>
+            <DialogDescription>
+              Fügen Sie einen neuen Mitarbeiter zum System hinzu.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                value={newEmployee.name || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                E-Mail
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={newEmployee.email || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right">
+                Rolle
+              </Label>
+              <Select 
+                value={newEmployee.role} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, role: value as "Admin" | "Moderator" | "User"})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Rolle auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="User">Benutzer</SelectItem>
+                  <SelectItem value="Moderator">Moderator</SelectItem>
+                  <SelectItem value="Admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="department" className="text-right">
+                Abteilung
+              </Label>
+              <Select 
+                value={newEmployee.department} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, department: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Abteilung auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select 
+                value={newEmployee.active ? "active" : "inactive"} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, active: value === "active"})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Status auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktiv</SelectItem>
+                  <SelectItem value="inactive">Inaktiv</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                <X className="mr-2 h-4 w-4" /> Abbrechen
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleSaveNewEmployee}>
+              <Save className="mr-2 h-4 w-4" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mitarbeiter bearbeiten</DialogTitle>
+            <DialogDescription>
+              Aktualisieren Sie die Informationen des Mitarbeiters.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-name"
+                value={newEmployee.name || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-email" className="text-right">
+                E-Mail
+              </Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={newEmployee.email || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-role" className="text-right">
+                Rolle
+              </Label>
+              <Select 
+                value={newEmployee.role} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, role: value as "Admin" | "Moderator" | "User"})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Rolle auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="User">Benutzer</SelectItem>
+                  <SelectItem value="Moderator">Moderator</SelectItem>
+                  <SelectItem value="Admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-department" className="text-right">
+                Abteilung
+              </Label>
+              <Select 
+                value={newEmployee.department} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, department: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Abteilung auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-status" className="text-right">
+                Status
+              </Label>
+              <Select 
+                value={newEmployee.active ? "active" : "inactive"} 
+                onValueChange={(value) => setNewEmployee({...newEmployee, active: value === "active"})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Status auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktiv</SelectItem>
+                  <SelectItem value="inactive">Inaktiv</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                <X className="mr-2 h-4 w-4" /> Abbrechen
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleSaveEditEmployee}>
+              <Save className="mr-2 h-4 w-4" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mitarbeiter löschen</DialogTitle>
+            <DialogDescription>
+              Möchten Sie den Mitarbeiter wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {currentEmployee && (
+              <p className="text-center font-medium">{currentEmployee.name} ({currentEmployee.email})</p>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                <X className="mr-2 h-4 w-4" /> Abbrechen
+              </Button>
+            </DialogClose>
+            <Button type="button" variant="destructive" onClick={confirmDeleteEmployee}>
+              <Trash2 className="mr-2 h-4 w-4" /> Löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
