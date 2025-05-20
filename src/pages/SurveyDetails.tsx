@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +28,7 @@ import {
   Save,
   X
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Survey, SurveyStatus, User } from "@/lib/types";
 import {
@@ -62,6 +61,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import QRCode from "qrcode";
 
 // Define the COLORS array for rating visualization
 const COLORS = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71'];
@@ -160,6 +160,8 @@ const SurveyDetails = () => {
   const [report, setReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
+  const qrCodeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   
   // Edit survey state
   const [openEditDialog, setOpenEditDialog] = useState(false);
@@ -194,6 +196,44 @@ const SurveyDetails = () => {
     }, 1000);
   }, [id]);
 
+  useEffect(() => {
+    // Generate QR code when survey data is loaded
+    if (survey && survey.shareLink) {
+      generateQrCode(survey.shareLink);
+    }
+  }, [survey]);
+
+  const generateQrCode = async (url: string) => {
+    try {
+      // Generate QR code as data URL
+      const dataUrl = await QRCode.toDataURL(url, {
+        width: 240,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      setQrCodeUrl(dataUrl);
+      
+      // Also render to canvas for direct download
+      if (qrCodeCanvasRef.current) {
+        await QRCode.toCanvas(qrCodeCanvasRef.current, url, {
+          width: 240,
+          margin: 2
+        });
+      }
+    } catch (err) {
+      console.error("Error generating QR code:", err);
+      toast({
+        title: "Fehler",
+        description: "QR-Code konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Get status badge color
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -224,9 +264,25 @@ const SurveyDetails = () => {
   };
 
   const handleDownloadQR = () => {
+    if (!qrCodeUrl) {
+      toast({
+        title: "Fehler",
+        description: "QR-Code ist noch nicht generiert.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create download link
+    const downloadLink = document.createElement('a');
+    downloadLink.href = qrCodeUrl;
+    downloadLink.download = `umfrage-qr-${id}.png`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
     toast({
-      title: "QR-Code",
-      description: "QR-Code-Download-Funktionalität würde hier implementiert werden",
+      description: "QR-Code wurde heruntergeladen.",
     });
   };
 
@@ -375,10 +431,12 @@ const SurveyDetails = () => {
                 </div>
               )}
               
-              {survey.dueDate && (
+              {survey.status === "Active" && (
                 <div>
-                  <h3 className="font-medium text-gray-700">Fälligkeitsdatum</h3>
-                  <p className="mt-1 text-gray-600">{new Date(survey.dueDate).toLocaleDateString('de-DE')}</p>
+                  <h3 className="font-medium text-gray-700">Status</h3>
+                  <p className="mt-1 text-gray-600">
+                    Aktiv - Antworten werden gesammelt bis die Umfrage geschlossen wird
+                  </p>
                 </div>
               )}
               
@@ -453,14 +511,20 @@ const SurveyDetails = () => {
                 <h3 className="font-medium text-gray-700 mb-2">QR-Code</h3>
                 <div className="flex justify-center p-6 bg-gray-50 rounded-md">
                   <div className="w-40 h-40 bg-white p-2 flex items-center justify-center">
-                    <QrCode size={120} />
+                    {qrCodeUrl ? (
+                      <img src={qrCodeUrl} alt="QR Code" width={120} height={120} />
+                    ) : (
+                      <div className="animate-pulse bg-gray-200 w-[120px] h-[120px]"></div>
+                    )}
                   </div>
                 </div>
+                <canvas ref={qrCodeCanvasRef} className="hidden" width={240} height={240}></canvas>
                 <div className="flex justify-center mt-4">
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={handleDownloadQR}
+                    disabled={!qrCodeUrl}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     QR-Code herunterladen
