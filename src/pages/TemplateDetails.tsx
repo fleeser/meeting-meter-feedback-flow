@@ -22,6 +22,17 @@ import {
   DialogTitle,
   DialogClose
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,7 +49,7 @@ const mockTemplate: Template = {
   ],
   createdAt: "2025-04-15T14:30:00Z",
   updatedAt: "2025-04-15T14:30:00Z",
-  isUsedInSurveys: true
+  isUsedInSurveys: false
 };
 
 const TemplateDetails = () => {
@@ -236,9 +247,8 @@ const TemplateDetails = () => {
     
     if (newIndex < 0 || newIndex >= newQuestions.length) return;
     
-    const temp = newQuestions[index];
-    newQuestions[index] = newQuestions[newIndex];
-    newQuestions[newIndex] = temp;
+    // Swap questions
+    [newQuestions[index], newQuestions[newIndex]] = [newQuestions[newIndex], newQuestions[index]];
     
     setTemplate({
       ...template,
@@ -318,16 +328,33 @@ const TemplateDetails = () => {
             <Edit className="h-4 w-4 mr-2" />
             Bearbeiten
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="text-survey-closed hover:text-white hover:bg-survey-closed"
-            onClick={handleDeleteTemplate}
-            disabled={template.isUsedInSurveys}
-          >
-            <Trash className="h-4 w-4 mr-2" />
-            Löschen
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-survey-closed hover:text-white hover:bg-survey-closed"
+                disabled={template.isUsedInSurveys}
+              >
+                <Trash className="h-4 w-4 mr-2" />
+                Löschen
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Vorlage löschen</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Möchten Sie diese Vorlage wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteTemplate} className="bg-red-600 hover:bg-red-700">
+                  Löschen
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       
@@ -454,32 +481,6 @@ const TemplateDetails = () => {
             </DialogClose>
             <Button type="button" onClick={handleSaveTemplateName}>
               <Save className="mr-2 h-4 w-4" /> Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Template Dialog */}
-      <Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Vorlage löschen</DialogTitle>
-            <DialogDescription>
-              Möchten Sie diese Vorlage wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-center font-medium">{template.name}</p>
-            <p className="text-center text-sm text-gray-500 mt-1">{template.questions.length} Fragen</p>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                <X className="mr-2 h-4 w-4" /> Abbrechen
-              </Button>
-            </DialogClose>
-            <Button type="button" variant="destructive" onClick={confirmDeleteTemplate}>
-              <Trash className="mr-2 h-4 w-4" /> Löschen
             </Button>
           </DialogFooter>
         </DialogContent>

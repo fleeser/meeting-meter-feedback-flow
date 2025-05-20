@@ -25,10 +25,43 @@ import {
   BarChart,
   Edit,
   Trash,
+  Plus,
+  Save,
+  X
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Survey } from "@/lib/types";
+import { Survey, SurveyStatus, User } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Define the COLORS array for rating visualization
 const COLORS = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71'];
@@ -59,8 +92,20 @@ const mockSurvey: Survey = {
   responses: 12,
   createdAt: "2025-05-10T10:00:00Z",
   updatedAt: "2025-05-10T10:00:00Z",
-  shareLink: "https://survey.example.com/s/1"
+  shareLink: "https://survey.example.com/s/1",
+  dueDate: "2025-06-10",
+  description: "Feedback zur ersten Projektsitzung sammeln",
+  isAnonymous: true
 };
+
+// Mock all employees data for assigning
+const mockAllEmployees: User[] = [
+  { id: "1", name: "John Smith", email: "john@example.com", role: "User", active: true },
+  { id: "2", name: "Sarah Johnson", email: "sarah@example.com", role: "User", active: true },
+  { id: "3", name: "Michael Brown", email: "michael@example.com", role: "User", active: true },
+  { id: "4", name: "Emily Davis", email: "emily@example.com", role: "User", active: true },
+  { id: "5", name: "Robert Wilson", email: "robert@example.com", role: "User", active: true }
+];
 
 // Mock report data
 const mockReport = {
@@ -98,6 +143,15 @@ const mockReport = {
   ]
 };
 
+interface EditSurveyFormData {
+  name: string;
+  description: string;
+  dueDate: string;
+  isAnonymous: boolean;
+  status: SurveyStatus;
+  assignedEmployeeIds: string[];
+}
+
 const SurveyDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -106,12 +160,36 @@ const SurveyDetails = () => {
   const [report, setReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Edit survey state
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState<EditSurveyFormData>({
+    name: "",
+    description: "",
+    dueDate: "",
+    isAnonymous: false,
+    status: "Draft",
+    assignedEmployeeIds: []
+  });
 
   useEffect(() => {
     // In a real app, this would be an API call
     setTimeout(() => {
       setSurvey(mockSurvey);
       setReport(mockReport);
+      
+      // Initialize edit form data
+      if (mockSurvey) {
+        setEditFormData({
+          name: mockSurvey.name,
+          description: mockSurvey.description || "",
+          dueDate: mockSurvey.dueDate || "",
+          isAnonymous: mockSurvey.isAnonymous || false,
+          status: mockSurvey.status,
+          assignedEmployeeIds: mockSurvey.assignedEmployees.map(emp => emp.id)
+        });
+      }
+      
       setLoading(false);
     }, 1000);
   }, [id]);
@@ -120,11 +198,11 @@ const SurveyDetails = () => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "draft":
-        return "bg-survey-draft text-white";
+        return "bg-amber-100 text-amber-800";
       case "active":
-        return "bg-survey-active text-white";
+        return "bg-green-100 text-green-800";
       case "closed":
-        return "bg-survey-closed text-white";
+        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-500 text-white";
     }
@@ -153,34 +231,59 @@ const SurveyDetails = () => {
   };
 
   const handleEditSurvey = () => {
-    if (survey?.status !== "Draft") {
+    setOpenEditDialog(true);
+  };
+
+  const handleEditFormChange = (field: keyof EditSurveyFormData, value: any) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveEditedSurvey = () => {
+    if (!editFormData.name.trim()) {
       toast({
-        title: "Bearbeitung nicht möglich",
-        description: "Nur Umfragen im Entwurfsstatus können vollständig bearbeitet werden.",
+        title: "Fehler",
+        description: "Der Umfragename darf nicht leer sein.",
         variant: "destructive",
       });
       return;
     }
-    
-    toast({
-      title: "Umfrage bearbeiten",
-      description: "Dies würde in einer echten Anwendung den Umfrage-Editor öffnen",
-    });
+
+    if (survey) {
+      // Find assigned employees from the IDs
+      const assignedEmployees = mockAllEmployees.filter(emp => 
+        editFormData.assignedEmployeeIds.includes(emp.id)
+      );
+
+      const updatedSurvey: Survey = {
+        ...survey,
+        name: editFormData.name,
+        description: editFormData.description,
+        dueDate: editFormData.dueDate,
+        isAnonymous: editFormData.isAnonymous,
+        status: editFormData.status,
+        assignedEmployees,
+        updatedAt: new Date().toISOString()
+      };
+
+      setSurvey(updatedSurvey);
+      toast({
+        description: "Umfrage wurde aktualisiert.",
+      });
+      setOpenEditDialog(false);
+    }
   };
 
   const handleDeleteSurvey = () => {
-    if (survey?.status !== "Draft") {
-      toast({
-        title: "Löschen nicht möglich",
-        description: "Nur Umfragen im Entwurfsstatus können gelöscht werden.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     toast({
-      description: "Dies würde in einer echten Anwendung eine Löschbestätigung anzeigen",
+      description: "Umfrage wurde gelöscht. Sie werden zur Übersichtsseite weitergeleitet.",
     });
+    
+    setTimeout(() => {
+      navigate("/app");
+    }, 1500);
   };
 
   if (loading) {
@@ -219,21 +322,36 @@ const SurveyDetails = () => {
             variant="outline" 
             size="sm"
             onClick={handleEditSurvey}
-            disabled={survey.status !== "Draft"}
           >
             <Edit className="h-4 w-4 mr-2" />
             Bearbeiten
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="text-survey-closed hover:text-white hover:bg-survey-closed"
-            onClick={handleDeleteSurvey}
-            disabled={survey.status !== "Draft"}
-          >
-            <Trash className="h-4 w-4 mr-2" />
-            Löschen
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-survey-closed hover:text-white hover:bg-survey-closed"
+              >
+                <Trash className="h-4 w-4 mr-2" />
+                Löschen
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Umfrage löschen</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Möchten Sie diese Umfrage wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteSurvey} className="bg-red-600 hover:bg-red-700">
+                  Löschen
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       
@@ -250,9 +368,32 @@ const SurveyDetails = () => {
               <CardTitle>Umfrageinformationen</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {survey.description && (
+                <div>
+                  <h3 className="font-medium text-gray-700">Beschreibung</h3>
+                  <p className="mt-1 text-gray-600">{survey.description}</p>
+                </div>
+              )}
+              
+              {survey.dueDate && (
+                <div>
+                  <h3 className="font-medium text-gray-700">Fälligkeitsdatum</h3>
+                  <p className="mt-1 text-gray-600">{new Date(survey.dueDate).toLocaleDateString('de-DE')}</p>
+                </div>
+              )}
+              
+              {survey.isAnonymous !== undefined && (
+                <div>
+                  <h3 className="font-medium text-gray-700">Anonymität</h3>
+                  <p className="mt-1 text-gray-600">
+                    {survey.isAnonymous ? "Anonym - Teilnehmer werden nicht identifiziert" : "Nicht anonym - Teilnehmer werden identifiziert"}
+                  </p>
+                </div>
+              )}
+              
               <div>
                 <h3 className="font-medium text-gray-700">Zugewiesene Mitarbeiter</h3>
-                <div className="flex mt-2 space-x-2">
+                <div className="flex flex-wrap mt-2 gap-2">
                   {survey.assignedEmployees.map(employee => (
                     <div key={employee.id} className="flex items-center p-2 bg-gray-50 rounded-md">
                       <Avatar className="h-6 w-6 mr-2">
@@ -456,6 +597,142 @@ const SurveyDetails = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Survey Dialog */}
+      <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Umfrage bearbeiten</DialogTitle>
+            <DialogDescription>
+              Bearbeiten Sie die Details Ihrer Umfrage hier.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="survey-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="survey-name"
+                value={editFormData.name}
+                onChange={(e) => handleEditFormChange("name", e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="survey-description" className="text-right">
+                Beschreibung
+              </Label>
+              <Textarea
+                id="survey-description"
+                value={editFormData.description}
+                onChange={(e) => handleEditFormChange("description", e.target.value)}
+                className="col-span-3"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="survey-due-date" className="text-right">
+                Fälligkeitsdatum
+              </Label>
+              <Input
+                id="survey-due-date"
+                type="date"
+                value={editFormData.dueDate}
+                onChange={(e) => handleEditFormChange("dueDate", e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="survey-status" className="text-right">
+                Status
+              </Label>
+              <Select 
+                value={editFormData.status}
+                onValueChange={(value) => handleEditFormChange("status", value as SurveyStatus)}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Status auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Draft">Entwurf</SelectItem>
+                  <SelectItem value="Active">Aktiv</SelectItem>
+                  <SelectItem value="Closed">Geschlossen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="survey-anonymous" className="text-right">
+                Anonymität
+              </Label>
+              <div className="col-span-3 flex items-center">
+                <input
+                  type="checkbox"
+                  id="survey-anonymous"
+                  checked={editFormData.isAnonymous}
+                  onChange={(e) => handleEditFormChange("isAnonymous", e.target.checked)}
+                  className="mr-2 h-4 w-4"
+                />
+                <label htmlFor="survey-anonymous">
+                  Antworten anonym sammeln
+                </label>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">
+                Zugewiesene Mitarbeiter
+              </Label>
+              <div className="col-span-3 space-y-2">
+                {mockAllEmployees.map(employee => (
+                  <div key={employee.id} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`employee-${employee.id}`}
+                      checked={editFormData.assignedEmployeeIds.includes(employee.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          handleEditFormChange("assignedEmployeeIds", [
+                            ...editFormData.assignedEmployeeIds,
+                            employee.id
+                          ]);
+                        } else {
+                          handleEditFormChange("assignedEmployeeIds", 
+                            editFormData.assignedEmployeeIds.filter(id => id !== employee.id)
+                          );
+                        }
+                      }}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <label htmlFor={`employee-${employee.id}`} className="flex items-center">
+                      <Avatar className="h-6 w-6 mr-2">
+                        <AvatarFallback className="text-xs bg-primary-blue text-white">
+                          {employee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {employee.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                <X className="mr-2 h-4 w-4" /> Abbrechen
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleSaveEditedSurvey}>
+              <Save className="mr-2 h-4 w-4" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
