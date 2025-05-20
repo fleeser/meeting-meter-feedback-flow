@@ -88,3 +88,21 @@ export interface SurveyReport {
     responseRate: number;
   }[];
 }
+
+export const translateSurveyStatus = (status: SurveyStatus): string => {
+  switch (status) {
+    case "Draft": return "Entwurf";
+    case "Active": return "Aktiv";
+    case "Closed": return "Geschlossen";
+    default: return status;
+  }
+};
+
+export const getStatusColor = (status: SurveyStatus): string => {
+  switch (status) {
+    case "Draft": return "bg-amber-100 text-amber-800";
+    case "Active": return "bg-green-100 text-green-800";
+    case "Closed": return "bg-gray-100 text-gray-800";
+    default: return "bg-gray-100 text-gray-800";
+  }
+};

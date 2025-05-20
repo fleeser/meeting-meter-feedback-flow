@@ -56,14 +56,19 @@ const mockEmployees: User[] = [
   { id: "3", name: "Anna Weber", email: "anna.weber@example.com", role: "User", department: "Marketing", active: true },
   { id: "4", name: "Max Becker", email: "max.becker@example.com", role: "User", department: "Sales", active: false },
   { id: "5", name: "Sophie Wagner", email: "sophie.wagner@example.com", role: "User", department: "Support", active: true },
+  { id: "6", name: "Lukas Fischer", email: "lukas.fischer@example.com", role: "Moderator", department: "Finance", active: true },
+  { id: "7", name: "Lena Hoffmann", email: "lena.hoffmann@example.com", role: "User", department: "HR", active: true },
+  { id: "8", name: "Felix Schäfer", email: "felix.schaefer@example.com", role: "User", department: "IT", active: false },
 ];
 
-const departments = ["HR", "IT", "Marketing", "Sales", "Support", "Finance", "Operations"];
+const departments = ["HR", "IT", "Marketing", "Sales", "Support", "Finance", "Operations", "Development", "Legal", "Executive"];
 
 const Employees = () => {
   const [employees, setEmployees] = useState<User[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
@@ -82,24 +87,39 @@ const Employees = () => {
     // Simulate loading data
     setTimeout(() => {
       setEmployees(mockEmployees);
-      setFilteredEmployees(mockEmployees);
       setLoading(false);
     }, 1000);
   }, []);
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredEmployees(employees);
-    } else {
-      const filtered = employees.filter(
+    // Apply filters and search
+    let filtered = [...employees];
+    
+    // Filter by department
+    if (departmentFilter !== "all") {
+      filtered = filtered.filter(emp => emp.department === departmentFilter);
+    }
+    
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(emp => 
+        (statusFilter === "active" && emp.active) || 
+        (statusFilter === "inactive" && !emp.active)
+      );
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim() !== "") {
+      filtered = filtered.filter(
         (emp) =>
           emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
           emp.department?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredEmployees(filtered);
     }
-  }, [searchQuery, employees]);
+    
+    setFilteredEmployees(filtered);
+  }, [searchQuery, employees, departmentFilter, statusFilter]);
 
   const handleAddEmployee = () => {
     setNewEmployee({
@@ -129,7 +149,8 @@ const Employees = () => {
       email: newEmployee.email,
       role: newEmployee.role as "Admin" | "Moderator" | "User",
       department: newEmployee.department,
-      active: newEmployee.active
+      active: newEmployee.active,
+      joinDate: new Date().toISOString(),
     };
 
     setEmployees([...employees, employee]);
@@ -148,7 +169,8 @@ const Employees = () => {
         email: employee.email,
         role: employee.role,
         department: employee.department,
-        active: employee.active
+        active: employee.active,
+        position: employee.position
       });
       setOpenEditDialog(true);
     }
@@ -173,7 +195,9 @@ const Employees = () => {
           email: newEmployee.email || emp.email,
           role: newEmployee.role as "Admin" | "Moderator" | "User" || emp.role,
           department: newEmployee.department || emp.department,
-          active: newEmployee.active !== undefined ? newEmployee.active : emp.active
+          position: newEmployee.position || emp.position,
+          active: newEmployee.active !== undefined ? newEmployee.active : emp.active,
+          updatedAt: new Date().toISOString()
         };
       }
       return emp;
@@ -222,6 +246,36 @@ const Employees = () => {
     }
   };
 
+  const handleBulkAction = (action: 'activate' | 'deactivate') => {
+    const selected = document.querySelectorAll('input[name="select-employee"]:checked');
+    if (selected.length === 0) {
+      toast({
+        title: "Keine Auswahl",
+        description: "Bitte wählen Sie mindestens einen Mitarbeiter aus",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const selectedIds = Array.from(selected).map(el => el.getAttribute('data-id'));
+    const updatedEmployees = employees.map(emp => {
+      if (selectedIds.includes(emp.id)) {
+        return { ...emp, active: action === 'activate' };
+      }
+      return emp;
+    });
+    
+    setEmployees(updatedEmployees);
+    toast({
+      description: `${selectedIds.length} Mitarbeiter wurden ${action === 'activate' ? 'aktiviert' : 'deaktiviert'}`,
+    });
+    
+    // Reset checkboxes
+    document.querySelectorAll('input[name="select-employee"]:checked').forEach(
+      (el: any) => { el.checked = false; }
+    );
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -236,7 +290,7 @@ const Employees = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Mitarbeiterverwaltung</h1>
           <p className="text-gray-500 mt-1">
-            Mitarbeiter erstellen, bearbeiten und zuweisen
+            Mitarbeiter erstellen, bearbeiten und verwalten
           </p>
         </div>
         <Button onClick={handleAddEmployee}>
@@ -251,14 +305,45 @@ const Employees = () => {
             Gesamtzahl der Mitarbeiter: {employees.length} 
             ({employees.filter(e => e.active).length} aktiv, {employees.filter(e => !e.active).length} inaktiv)
           </CardDescription>
-          <div className="flex items-center mb-4 mt-2">
-            <Search className="h-5 w-5 text-gray-400 mr-2" />
-            <Input
-              placeholder="Nach Name, E-Mail oder Abteilung suchen"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-md"
-            />
+          <div className="flex flex-col md:flex-row gap-4 mb-4 mt-2">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Nach Name, E-Mail oder Abteilung suchen"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Abteilung" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Abteilungen</SelectItem>
+                {departments.map(dept => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Status</SelectItem>
+                <SelectItem value="active">Aktiv</SelectItem>
+                <SelectItem value="inactive">Inaktiv</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <Button variant="outline" size="sm" onClick={() => handleBulkAction('activate')}>
+              <CheckCircle className="h-4 w-4 mr-2" /> Ausgewählte aktivieren
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleBulkAction('deactivate')}>
+              <XCircle className="h-4 w-4 mr-2" /> Ausgewählte deaktivieren
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -266,6 +351,13 @@ const Employees = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <input type="checkbox" className="h-4 w-4" onChange={(e) => {
+                      document.querySelectorAll('input[name="select-employee"]').forEach(
+                        (el: any) => { el.checked = e.target.checked; }
+                      );
+                    }} />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>E-Mail</TableHead>
                   <TableHead>Rolle</TableHead>
@@ -275,77 +367,89 @@ const Employees = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <UserRound className="h-5 w-5 text-blue-600" />
-                        </div>
-                        {employee.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>{employee.email}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          employee.role === "Admin"
-                            ? "destructive"
-                            : employee.role === "Moderator"
-                            ? "outline"
-                            : "secondary"
-                        }
-                      >
-                        {employee.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{employee.department}</TableCell>
-                    <TableCell>
-                      {employee.active ? (
-                        <Badge variant="outline" className="bg-green-100 text-green-800">
-                          Aktiv
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                          Inaktiv
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleToggleActive(employee.id, employee.active || false)}
-                      >
-                        {employee.active ? (
-                          <XCircle className="h-5 w-5 text-gray-500" />
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditEmployee(employee.id)}
-                      >
-                        <Edit className="h-5 w-5 text-gray-500" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteEmployee(employee.id)}
-                      >
-                        <Trash2 className="h-5 w-5 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredEmployees.length === 0 && (
+                {filteredEmployees.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       Keine Mitarbeiter gefunden
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filteredEmployees.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell>
+                        <input 
+                          type="checkbox" 
+                          name="select-employee" 
+                          data-id={employee.id} 
+                          className="h-4 w-4" 
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                            <UserRound className="h-5 w-5 text-blue-600" />
+                          </div>
+                          {employee.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{employee.email}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            employee.role === "Admin"
+                              ? "destructive"
+                              : employee.role === "Moderator"
+                              ? "outline"
+                              : "secondary"
+                          }
+                        >
+                          {employee.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{employee.department}</TableCell>
+                      <TableCell>
+                        {employee.active ? (
+                          <Badge variant="outline" className="bg-green-100 text-green-800">
+                            Aktiv
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                            Inaktiv
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleToggleActive(employee.id, employee.active || false)}
+                          title={employee.active ? "Deaktivieren" : "Aktivieren"}
+                        >
+                          {employee.active ? (
+                            <XCircle className="h-5 w-5 text-gray-500" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditEmployee(employee.id)}
+                          title="Bearbeiten"
+                        >
+                          <Edit className="h-5 w-5 text-gray-500" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteEmployee(employee.id)}
+                          title="Löschen"
+                        >
+                          <Trash2 className="h-5 w-5 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -383,6 +487,17 @@ const Employees = () => {
                 type="email"
                 value={newEmployee.email || ""}
                 onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="position" className="text-right">
+                Position
+              </Label>
+              <Input
+                id="position"
+                value={newEmployee.position || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
                 className="col-span-3"
               />
             </div>
@@ -483,6 +598,17 @@ const Employees = () => {
                 type="email"
                 value={newEmployee.email || ""}
                 onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-position" className="text-right">
+                Position
+              </Label>
+              <Input
+                id="edit-position"
+                value={newEmployee.position || ""}
+                onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
                 className="col-span-3"
               />
             </div>
