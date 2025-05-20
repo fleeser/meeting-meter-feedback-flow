@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { toast } from '@/components/ui/use-toast';
+import { Session } from '@supabase/supabase-js';
 
 /**
  * Authentication context interface definition
  */
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -20,6 +22,7 @@ interface AuthContextType {
  */
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  session: null,
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
@@ -35,6 +38,7 @@ export const useAuth = () => useContext(AuthContext);
  */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -42,23 +46,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * Initialize auth state from Supabase session
    */
   useEffect(() => {
-    // Check current authentication state
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+    console.log("AuthProvider: Initializing auth state");
+    
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        console.log("Auth state changed:", event, currentSession?.user?.id);
         
-        if (error) {
-          console.error('Error initializing auth:', error);
-          return;
-        }
+        setSession(currentSession);
         
-        if (session?.user) {
+        if (currentSession?.user) {
           // Get user profile data
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', currentSession.user.id)
             .single();
+            
+          if (profileError) {
+            console.error('Error fetching profile:', profileError);
+            return;
+          }
             
           if (profileData) {
             const userData: User = {
@@ -74,79 +82,95 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             };
             
             setUser(userData);
-            localStorage.setItem('surveyToolUser', JSON.stringify(userData));
+            console.log("User profile set:", userData);
+          }
+        } else {
+          setUser(null);
+          console.log("User session cleared");
+        }
+      }
+    );
+    
+    // THEN check for existing session
+    const checkSession = async () => {
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        console.log("Initial session check:", currentSession?.user?.id);
+        
+        if (currentSession?.user) {
+          // Get user profile data
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .single();
+            
+          if (profileError) {
+            console.error('Error fetching profile:', profileError);
+            setLoading(false);
+            return;
+          }
+            
+          if (profileData) {
+            const userData: User = {
+              id: profileData.id,
+              name: profileData.name,
+              email: profileData.email,
+              role: profileData.role as "Admin" | "Moderator" | "User",
+              department: profileData.department || undefined,
+              position: profileData.position || undefined,
+              active: profileData.active,
+              joinDate: profileData.join_date || undefined,
+              profileImage: profileData.profile_image || undefined,
+            };
+            
+            setUser(userData);
+            setSession(currentSession);
+            console.log("Initial user profile set:", userData);
           }
         }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      } catch (err) {
+        console.error('Session initialization error:', err);
       } finally {
         setLoading(false);
       }
     };
     
-    // Listen for authentication state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Get user profile data
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (profileData) {
-          const userData: User = {
-            id: profileData.id,
-            name: profileData.name,
-            email: profileData.email,
-            role: profileData.role as "Admin" | "Moderator" | "User",
-            department: profileData.department || undefined,
-            position: profileData.position || undefined,
-            active: profileData.active,
-            joinDate: profileData.join_date || undefined,
-            profileImage: profileData.profile_image || undefined,
-          };
-          
-          setUser(userData);
-          localStorage.setItem('surveyToolUser', JSON.stringify(userData));
-        }
-      }
-      
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        localStorage.removeItem('surveyToolUser');
-        navigate('/');
-      }
-    });
-    
-    initializeAuth();
+    checkSession();
     
     // Cleanup subscription
     return () => {
+      console.log("Cleaning up auth subscription");
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   /**
    * Sign in with email and password
    */
   const signIn = async (email: string, password: string) => {
+    console.log("Attempting sign in with:", email);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error("Sign in error:", error.message);
         throw error;
       }
       
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      });
+      console.log("Sign in successful, session:", data.session?.user?.id);
+      
+      // Explicitly navigate to app route after successful login
+      navigate("/app");
+      
+      return data;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -161,16 +185,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        toast({
-          title: "Sign out failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error("Sign out error:", error.message);
         throw error;
       }
       
-      localStorage.removeItem('surveyToolUser');
       setUser(null);
+      setSession(null);
       
       toast({
         title: "Signed out successfully",
@@ -183,8 +203,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const value = {
+    user,
+    session,
+    loading,
+    signIn,
+    signOut
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

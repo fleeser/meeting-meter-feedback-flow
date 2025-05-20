@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,8 +12,14 @@ const Layout = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
+  // For debugging authentication state
+  useEffect(() => {
+    console.log("Auth state in Layout:", { user, loading });
+  }, [user, loading]);
+
   // Redirect to login if not authenticated
   if (!loading && !user) {
+    console.log("Not authenticated, redirecting to login");
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 

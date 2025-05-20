@@ -3,42 +3,43 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginForm from "@/components/auth/LoginForm";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * Index page that serves as the authentication landing page
+ * Provides login functionality with Supabase authentication
+ */
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
 
+  /**
+   * Handle user login with Supabase authentication
+   * @param email User email
+   * @param password User password
+   */
   const handleLogin = async (email: string, password: string) => {
     setIsLoading(true);
     
-    // This would be replaced with an actual API call in a real app
-    setTimeout(() => {
+    try {
+      await signIn(email, password);
+      toast({
+        title: "Login successful",
+        description: "Welcome back to the Meeting Survey Tool!",
+      });
+      navigate("/app");
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Invalid email or password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      
-      // Simulating successful login for demo purposes
-      if (email === "demo@example.com" && password === "password") {
-        // Store auth in localStorage (in real app, use secure storage)
-        localStorage.setItem("surveyToolUser", JSON.stringify({
-          name: "Demo User",
-          email,
-          id: "user-1"
-        }));
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome back to the Survey Tool!",
-        });
-        
-        navigate("/app");
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
-      }
-    }, 1000);
+    }
   };
 
   return (
@@ -55,16 +56,6 @@ const Index = () => {
             </h2>
             
             <LoginForm onLogin={handleLogin} isLoading={isLoading} />
-            
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">
-                For demo purposes, use:
-                <br />
-                Email: demo@example.com
-                <br />
-                Password: password
-              </p>
-            </div>
           </div>
         </div>
       </main>

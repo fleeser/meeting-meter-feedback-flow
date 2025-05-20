@@ -16,19 +16,31 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { User as UserType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavbarProps {
   user: UserType | null;
 }
 
+/**
+ * Navigation sidebar component with user info and navigation links
+ * Provides application navigation and logout functionality
+ */
 const Navbar = ({ user }: NavbarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { signOut } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("surveyToolUser");
-    navigate("/");
+  /**
+   * Handle user logout and redirect to login page
+   */
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const navItems = [
