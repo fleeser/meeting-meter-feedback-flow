@@ -2,21 +2,15 @@
 import { useState, useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
-import { User } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * Layout component that handles authentication and provides the app's main layout structure
+ * Redirects to login if user is not authenticated
+ */
 const Layout = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    // Check if user is authenticated
-    const storedUser = localStorage.getItem("surveyToolUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
 
   // Redirect to login if not authenticated
   if (!loading && !user) {
