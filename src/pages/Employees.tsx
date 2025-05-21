@@ -48,18 +48,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
-
-// Mock data for employees
-const mockEmployees: User[] = [
-  { id: "1", name: "Maria Schmidt", email: "maria.schmidt@example.com", role: "Admin", department: "HR", active: true },
-  { id: "2", name: "Thomas Müller", email: "thomas.mueller@example.com", role: "Moderator", department: "IT", active: true },
-  { id: "3", name: "Anna Weber", email: "anna.weber@example.com", role: "User", department: "Marketing", active: true },
-  { id: "4", name: "Max Becker", email: "max.becker@example.com", role: "User", department: "Sales", active: false },
-  { id: "5", name: "Sophie Wagner", email: "sophie.wagner@example.com", role: "User", department: "Support", active: true },
-  { id: "6", name: "Lukas Fischer", email: "lukas.fischer@example.com", role: "Moderator", department: "Finance", active: true },
-  { id: "7", name: "Lena Hoffmann", email: "lena.hoffmann@example.com", role: "User", department: "HR", active: true },
-  { id: "8", name: "Felix Schäfer", email: "felix.schaefer@example.com", role: "User", department: "IT", active: false },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 const departments = ["HR", "IT", "Marketing", "Sales", "Support", "Finance", "Operations", "Development", "Legal", "Executive"];
 
@@ -84,12 +73,47 @@ const Employees = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate loading data
-    setTimeout(() => {
-      setEmployees(mockEmployees);
-      setLoading(false);
-    }, 1000);
+    fetchEmployees();
   }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('name');
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Map database profiles to User objects
+      const mappedEmployees: User[] = data.map(profile => ({
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role as "Admin" | "Moderator" | "User",
+        department: profile.department || undefined,
+        active: profile.active,
+        position: profile.position || undefined,
+        joinDate: profile.join_date,
+        profileImage: profile.profile_image || undefined
+      }));
+      
+      setEmployees(mappedEmployees);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      toast({
+        title: "Fehler",
+        description: "Mitarbeiter konnten nicht geladen werden",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Apply filters and search
@@ -132,7 +156,7 @@ const Employees = () => {
     setOpenAddDialog(true);
   };
 
-  const handleSaveNewEmployee = () => {
+  const handleSaveNewEmployee = async () => {
     if (!newEmployee.name || !newEmployee.email) {
       toast({
         title: "Fehler",
@@ -142,22 +166,51 @@ const Employees = () => {
       return;
     }
 
-    const id = `${employees.length + 1}`;
-    const employee: User = {
-      id,
-      name: newEmployee.name,
-      email: newEmployee.email,
-      role: newEmployee.role as "Admin" | "Moderator" | "User",
-      department: newEmployee.department,
-      active: newEmployee.active,
-      joinDate: new Date().toISOString(),
-    };
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert({
+          name: newEmployee.name,
+          email: newEmployee.email,
+          role: newEmployee.role as "Admin" | "Moderator" | "User",
+          department: newEmployee.department,
+          position: newEmployee.position,
+          active: newEmployee.active || true,
+          join_date: new Date().toISOString()
+        })
+        .select();
 
-    setEmployees([...employees, employee]);
-    setOpenAddDialog(false);
-    toast({
-      description: `Mitarbeiter ${employee.name} wurde hinzugefügt`,
-    });
+      if (error) throw error;
+
+      // Map the returned database record to User type
+      if (data && data.length > 0) {
+        const newUser: User = {
+          id: data[0].id,
+          name: data[0].name,
+          email: data[0].email,
+          role: data[0].role as "Admin" | "Moderator" | "User",
+          department: data[0].department || undefined,
+          active: data[0].active,
+          position: data[0].position || undefined,
+          joinDate: data[0].join_date,
+          profileImage: data[0].profile_image || undefined
+        };
+        
+        setEmployees([...employees, newUser]);
+      }
+      
+      setOpenAddDialog(false);
+      toast({
+        description: `Mitarbeiter ${newEmployee.name} wurde hinzugefügt`,
+      });
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      toast({
+        title: "Fehler",
+        description: "Mitarbeiter konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditEmployee = (id: string) => {
@@ -176,7 +229,7 @@ const Employees = () => {
     }
   };
 
-  const handleSaveEditEmployee = () => {
+  const handleSaveEditEmployee = async () => {
     if (!currentEmployee) return;
     if (!newEmployee.name || !newEmployee.email) {
       toast({
@@ -187,27 +240,50 @@ const Employees = () => {
       return;
     }
 
-    const updatedEmployees = employees.map(emp => {
-      if (emp.id === currentEmployee.id) {
-        return {
-          ...emp,
-          name: newEmployee.name || emp.name,
-          email: newEmployee.email || emp.email,
-          role: newEmployee.role as "Admin" | "Moderator" | "User" || emp.role,
-          department: newEmployee.department || emp.department,
-          position: newEmployee.position || emp.position,
-          active: newEmployee.active !== undefined ? newEmployee.active : emp.active,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return emp;
-    });
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: newEmployee.name,
+          email: newEmployee.email,
+          role: newEmployee.role as "Admin" | "Moderator" | "User",
+          department: newEmployee.department,
+          position: newEmployee.position,
+          active: newEmployee.active,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentEmployee.id);
 
-    setEmployees(updatedEmployees);
-    setOpenEditDialog(false);
-    toast({
-      description: `Mitarbeiter ${newEmployee.name} wurde aktualisiert`,
-    });
+      if (error) throw error;
+
+      const updatedEmployees = employees.map(emp => {
+        if (emp.id === currentEmployee.id) {
+          return {
+            ...emp,
+            name: newEmployee.name || emp.name,
+            email: newEmployee.email || emp.email,
+            role: newEmployee.role as "Admin" | "Moderator" | "User" || emp.role,
+            department: newEmployee.department || emp.department,
+            position: newEmployee.position || emp.position,
+            active: newEmployee.active !== undefined ? newEmployee.active : emp.active,
+          };
+        }
+        return emp;
+      });
+
+      setEmployees(updatedEmployees);
+      setOpenEditDialog(false);
+      toast({
+        description: `Mitarbeiter ${newEmployee.name} wurde aktualisiert`,
+      });
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      toast({
+        title: "Fehler",
+        description: "Mitarbeiter konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteEmployee = (id: string) => {
@@ -218,35 +294,67 @@ const Employees = () => {
     }
   };
 
-  const confirmDeleteEmployee = () => {
+  const confirmDeleteEmployee = async () => {
     if (!currentEmployee) return;
     
-    const updatedEmployees = employees.filter(emp => emp.id !== currentEmployee.id);
-    setEmployees(updatedEmployees);
-    setOpenDeleteDialog(false);
-    toast({
-      description: `Mitarbeiter ${currentEmployee.name} wurde gelöscht`,
-    });
-  };
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', currentEmployee.id);
 
-  const handleToggleActive = (id: string, currentActiveState: boolean) => {
-    const updatedEmployees = employees.map(emp => {
-      if (emp.id === id) {
-        return { ...emp, active: !currentActiveState };
-      }
-      return emp;
-    });
-    setEmployees(updatedEmployees);
-    
-    const employee = employees.find(emp => emp.id === id);
-    if (employee) {
+      if (error) throw error;
+
+      const updatedEmployees = employees.filter(emp => emp.id !== currentEmployee.id);
+      setEmployees(updatedEmployees);
+      setOpenDeleteDialog(false);
       toast({
-        description: `Status von ${employee.name} wurde auf ${!currentActiveState ? 'aktiv' : 'inaktiv'} gesetzt`,
+        description: `Mitarbeiter ${currentEmployee.name} wurde gelöscht`,
+      });
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      toast({
+        title: "Fehler",
+        description: "Mitarbeiter konnte nicht gelöscht werden",
+        variant: "destructive",
       });
     }
   };
 
-  const handleBulkAction = (action: 'activate' | 'deactivate') => {
+  const handleToggleActive = async (id: string, currentActiveState: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ active: !currentActiveState, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      const updatedEmployees = employees.map(emp => {
+        if (emp.id === id) {
+          return { ...emp, active: !currentActiveState };
+        }
+        return emp;
+      });
+      setEmployees(updatedEmployees);
+      
+      const employee = employees.find(emp => emp.id === id);
+      if (employee) {
+        toast({
+          description: `Status von ${employee.name} wurde auf ${!currentActiveState ? 'aktiv' : 'inaktiv'} gesetzt`,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling employee status:', error);
+      toast({
+        title: "Fehler",
+        description: "Status konnte nicht geändert werden",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkAction = async (action: 'activate' | 'deactivate') => {
     const selected = document.querySelectorAll('input[name="select-employee"]:checked');
     if (selected.length === 0) {
       toast({
@@ -258,22 +366,45 @@ const Employees = () => {
     }
     
     const selectedIds = Array.from(selected).map(el => el.getAttribute('data-id'));
-    const updatedEmployees = employees.map(emp => {
-      if (selectedIds.includes(emp.id)) {
-        return { ...emp, active: action === 'activate' };
+    
+    try {
+      // Update each selected profile
+      for (const id of selectedIds) {
+        if (id) {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ active: action === 'activate', updated_at: new Date().toISOString() })
+            .eq('id', id);
+            
+          if (error) throw error;
+        }
       }
-      return emp;
-    });
-    
-    setEmployees(updatedEmployees);
-    toast({
-      description: `${selectedIds.length} Mitarbeiter wurden ${action === 'activate' ? 'aktiviert' : 'deaktiviert'}`,
-    });
-    
-    // Reset checkboxes
-    document.querySelectorAll('input[name="select-employee"]:checked').forEach(
-      (el: any) => { el.checked = false; }
-    );
+      
+      // Update local state
+      const updatedEmployees = employees.map(emp => {
+        if (selectedIds.includes(emp.id)) {
+          return { ...emp, active: action === 'activate' };
+        }
+        return emp;
+      });
+      
+      setEmployees(updatedEmployees);
+      toast({
+        description: `${selectedIds.length} Mitarbeiter wurden ${action === 'activate' ? 'aktiviert' : 'deaktiviert'}`,
+      });
+      
+      // Reset checkboxes
+      document.querySelectorAll('input[name="select-employee"]:checked').forEach(
+        (el: any) => { el.checked = false; }
+      );
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
+      toast({
+        title: "Fehler",
+        description: "Aktion konnte nicht durchgeführt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {

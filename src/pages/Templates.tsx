@@ -25,44 +25,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-// Mock data for demonstration
-const mockTemplates: Template[] = [
-  {
-    id: "1",
-    name: "Meeting Feedback",
-    questions: [
-      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-      { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
-      { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-    ],
-    createdAt: "2025-04-15T14:30:00Z",
-    updatedAt: "2025-04-15T14:30:00Z",
-    isUsedInSurveys: true
-  },
-  {
-    id: "2",
-    name: "Team Meeting",
-    questions: [
-      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-      { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
-    ],
-    createdAt: "2025-04-18T10:15:00Z",
-    updatedAt: "2025-04-18T10:15:00Z",
-    isUsedInSurveys: false
-  },
-];
-
-// Mock questions for the question bank
-const mockQuestionBank: Question[] = [
-  { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-  { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
-  { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-  { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
-  { id: "q5", text: "Wie zufrieden sind Sie mit der Teamleistung?", createdAt: "", updatedAt: "" },
-  { id: "q6", text: "Wie würden Sie die Arbeitsbedingungen bewerten?", createdAt: "", updatedAt: "" },
-  { id: "q7", text: "Wie zufrieden sind Sie mit der Kommunikation in Ihrem Team?", createdAt: "", updatedAt: "" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Templates = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -77,15 +41,86 @@ const Templates = () => {
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<string>("");
   const [newQuestion, setNewQuestion] = useState<string>("");
+  const { user } = useAuth();
 
   useEffect(() => {
-    // This would be an API call in a real app
-    setTimeout(() => {
-      setTemplates(mockTemplates);
-      setAvailableQuestions(mockQuestionBank);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    // Fetch both templates and questions from the database
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch templates with their questions
+        const { data: templatesData, error: templatesError } = await supabase
+          .from('templates')
+          .select(`
+            *,
+            template_questions(
+              id, 
+              order_position,
+              question:question_id(*)
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (templatesError) throw templatesError;
+
+        // Fetch all questions for the question bank
+        const { data: questionsData, error: questionsError } = await supabase
+          .from('questions')
+          .select('*')
+          .order('text');
+
+        if (questionsError) throw questionsError;
+
+        // Format the templates data
+        const formattedTemplates: Template[] = templatesData.map((template) => {
+          // Sort questions by order_position
+          const sortedTemplateQuestions = template.template_questions
+            ? [...template.template_questions].sort((a, b) => 
+                (a.order_position || 0) - (b.order_position || 0))
+            : [];
+            
+          // Map the questions to the format expected by the UI
+          const templateQuestions: Question[] = sortedTemplateQuestions.map(tq => ({
+            id: tq.question.id,
+            text: tq.question.text,
+            createdAt: tq.question.created_at,
+            updatedAt: tq.question.updated_at
+          }));
+
+          return {
+            id: template.id,
+            name: template.name,
+            questions: templateQuestions,
+            createdAt: template.created_at,
+            updatedAt: template.updated_at,
+            isUsedInSurveys: template.is_used_in_surveys
+          };
+        });
+
+        // Format the questions data
+        const formattedQuestions: Question[] = questionsData.map(question => ({
+          id: question.id,
+          text: question.text,
+          createdAt: question.created_at,
+          updatedAt: question.updated_at
+        }));
+
+        setTemplates(formattedTemplates);
+        setAvailableQuestions(formattedQuestions);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Fehler",
+          description: "Daten konnten nicht geladen werden",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
 
   const filteredTemplates = templates.filter(template =>
     template.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -99,7 +134,7 @@ const Templates = () => {
     setOpenCreateDialog(true);
   };
 
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     if (!newTemplate.name) {
       toast({
         title: "Fehler",
@@ -118,22 +153,56 @@ const Templates = () => {
       return;
     }
 
-    const id = `${templates.length + 1}`;
-    const now = new Date().toISOString();
-    const template: Template = {
-      id,
-      name: newTemplate.name,
-      questions: newTemplate.questions as Question[],
-      createdAt: now,
-      updatedAt: now,
-      isUsedInSurveys: false
-    };
+    try {
+      // First, create the template
+      const { data: templateData, error: templateError } = await supabase
+        .from('templates')
+        .insert({
+          name: newTemplate.name,
+          created_by: user?.id || null,
+          is_used_in_surveys: false
+        })
+        .select()
+        .single();
 
-    setTemplates([...templates, template]);
-    setOpenCreateDialog(false);
-    toast({
-      description: `Vorlage "${template.name}" wurde erstellt`,
-    });
+      if (templateError) throw templateError;
+      
+      // Then, create the template_questions connections
+      const templateQuestionInserts = (newTemplate.questions || []).map((question, index) => ({
+        template_id: templateData.id,
+        question_id: question.id,
+        order_position: index
+      }));
+      
+      const { error: templateQuestionsError } = await supabase
+        .from('template_questions')
+        .insert(templateQuestionInserts);
+        
+      if (templateQuestionsError) throw templateQuestionsError;
+      
+      // Create the complete template object for the UI
+      const template: Template = {
+        id: templateData.id,
+        name: templateData.name,
+        questions: newTemplate.questions as Question[],
+        createdAt: templateData.created_at,
+        updatedAt: templateData.updated_at,
+        isUsedInSurveys: false
+      };
+
+      setTemplates([template, ...templates]);
+      setOpenCreateDialog(false);
+      toast({
+        description: `Vorlage "${template.name}" wurde erstellt`,
+      });
+    } catch (error) {
+      console.error('Error creating template:', error);
+      toast({
+        title: "Fehler",
+        description: "Vorlage konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddExistingQuestion = () => {
@@ -158,7 +227,7 @@ const Templates = () => {
     setSelectedQuestion("");
   };
 
-  const handleAddNewQuestion = () => {
+  const handleAddNewQuestion = async () => {
     if (!newQuestion.trim()) {
       toast({
         description: "Bitte geben Sie eine Frage ein",
@@ -167,20 +236,48 @@ const Templates = () => {
       return;
     }
     
-    const now = new Date().toISOString();
-    const newQuestionObj: Question = {
-      id: `new-${Date.now()}`,
-      text: newQuestion,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setNewTemplate({
-      ...newTemplate,
-      questions: [...(newTemplate.questions || []), newQuestionObj]
-    });
-    
-    setNewQuestion("");
+    try {
+      // First, create the new question in the database
+      const { data, error } = await supabase
+        .from('questions')
+        .insert({
+          text: newQuestion,
+          created_by: user?.id || null
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newQuestionObj: Question = {
+        id: data.id,
+        text: data.text,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+      
+      // Add to available questions list
+      setAvailableQuestions([...availableQuestions, newQuestionObj]);
+      
+      // Add to current template
+      setNewTemplate({
+        ...newTemplate,
+        questions: [...(newTemplate.questions || []), newQuestionObj]
+      });
+      
+      setNewQuestion("");
+      
+      toast({
+        description: "Neue Frage erstellt und hinzugefügt",
+      });
+    } catch (error) {
+      console.error('Error creating new question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRemoveQuestion = (questionId: string) => {

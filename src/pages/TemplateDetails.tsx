@@ -36,21 +36,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-// Mock template data
-const mockTemplate: Template = {
-  id: "1",
-  name: "Meeting Feedback",
-  questions: [
-    { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-    { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
-    { id: "q3", text: "Wie würden Sie die Effizienz der Zeitnutzung während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-    { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
-  ],
-  createdAt: "2025-04-15T14:30:00Z",
-  updatedAt: "2025-04-15T14:30:00Z",
-  isUsedInSurveys: false
-};
+import { supabase } from "@/integrations/supabase/client";
 
 const TemplateDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,15 +51,87 @@ const TemplateDetails = () => {
   const [templateName, setTemplateName] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [newQuestionText, setNewQuestionText] = useState("");
+  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
 
   useEffect(() => {
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setTemplate(mockTemplate);
-      setTemplateName(mockTemplate.name);
-      setLoading(false);
-    }, 1000);
-  }, [id]);
+    async function fetchTemplateDetails() {
+      if (!id) return;
+
+      setLoading(true);
+      try {
+        // Fetch template with its questions
+        const { data: templateData, error: templateError } = await supabase
+          .from('templates')
+          .select(`
+            *,
+            template_questions(
+              id,
+              order_position,
+              question:question_id(*)
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (templateError) throw templateError;
+
+        // Fetch all questions for adding to template
+        const { data: questionsData, error: questionsError } = await supabase
+          .from('questions')
+          .select('*')
+          .order('text');
+
+        if (questionsError) throw questionsError;
+
+        // Sort questions by order_position
+        const sortedTemplateQuestions = templateData.template_questions
+          ? [...templateData.template_questions].sort((a, b) => 
+              (a.order_position || 0) - (b.order_position || 0))
+          : [];
+          
+        // Map the questions to the format expected by the UI
+        const templateQuestions: Question[] = sortedTemplateQuestions.map(tq => ({
+          id: tq.question.id,
+          text: tq.question.text,
+          createdAt: tq.question.created_at,
+          updatedAt: tq.question.updated_at
+        }));
+
+        // Format all available questions
+        const formattedQuestions: Question[] = questionsData.map(question => ({
+          id: question.id,
+          text: question.text,
+          createdAt: question.created_at,
+          updatedAt: question.updated_at
+        }));
+
+        const formattedTemplate: Template = {
+          id: templateData.id,
+          name: templateData.name,
+          questions: templateQuestions,
+          createdAt: templateData.created_at,
+          updatedAt: templateData.updated_at,
+          isUsedInSurveys: templateData.is_used_in_surveys
+        };
+
+        setTemplate(formattedTemplate);
+        setTemplateName(formattedTemplate.name);
+        setAvailableQuestions(formattedQuestions);
+      } catch (error) {
+        console.error('Error fetching template details:', error);
+        toast({
+          title: "Fehler",
+          description: "Vorlagendetails konnten nicht geladen werden",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTemplateDetails();
+  }, [id, toast]);
 
   const handleEditTemplate = () => {
     if (template?.isUsedInSurveys) {
@@ -87,8 +145,8 @@ const TemplateDetails = () => {
     setOpenEditNameDialog(true);
   };
 
-  const handleSaveTemplateName = () => {
-    if (!templateName.trim()) {
+  const handleSaveTemplateName = async () => {
+    if (!templateName.trim() || !template) {
       toast({
         title: "Fehler",
         description: "Der Vorlagenname darf nicht leer sein.",
@@ -97,16 +155,34 @@ const TemplateDetails = () => {
       return;
     }
 
-    if (template) {
+    try {
+      const { error } = await supabase
+        .from('templates')
+        .update({ 
+          name: templateName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', template.id);
+        
+      if (error) throw error;
+
       setTemplate({
         ...template,
         name: templateName,
         updatedAt: new Date().toISOString()
       });
+      
       toast({
         description: "Vorlagenname wurde aktualisiert.",
       });
       setOpenEditNameDialog(false);
+    } catch (error) {
+      console.error('Error updating template name:', error);
+      toast({
+        title: "Fehler",
+        description: "Vorlagenname konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
     }
   };
 
@@ -123,14 +199,33 @@ const TemplateDetails = () => {
     setOpenDeleteDialog(true);
   };
 
-  const confirmDeleteTemplate = () => {
-    toast({
-      description: "Vorlage wurde gelöscht. Sie werden zur Vorlagenliste umgeleitet.",
-    });
+  const confirmDeleteTemplate = async () => {
+    if (!template) return;
     
-    setTimeout(() => {
-      navigate("/app/templates");
-    }, 1500);
+    try {
+      // Delete the template (template_questions will be deleted automatically via cascade)
+      const { error } = await supabase
+        .from('templates')
+        .delete()
+        .eq('id', template.id);
+        
+      if (error) throw error;
+      
+      toast({
+        description: "Vorlage wurde gelöscht. Sie werden zur Vorlagenliste umgeleitet.",
+      });
+      
+      setTimeout(() => {
+        navigate("/app/templates");
+      }, 1500);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast({
+        title: "Fehler",
+        description: "Vorlage konnte nicht gelöscht werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddQuestion = () => {
@@ -144,38 +239,112 @@ const TemplateDetails = () => {
     }
     
     setNewQuestionText("");
+    setSelectedQuestionId("");
     setOpenAddQuestionDialog(true);
   };
 
-  const handleSaveNewQuestion = () => {
-    if (!newQuestionText.trim()) {
-      toast({
-        title: "Fehler",
-        description: "Der Fragetext darf nicht leer sein.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (template) {
-      const newQuestion: Question = {
-        id: `q${Date.now()}`,
-        text: newQuestionText,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      setTemplate({
-        ...template,
-        questions: [...template.questions, newQuestion],
-        updatedAt: new Date().toISOString()
-      });
-      
-      toast({
-        description: "Neue Frage wurde hinzugefügt.",
-      });
+  const handleSaveNewQuestion = async () => {
+    if (!template) return;
+    
+    try {
+      if (selectedQuestionId) {
+        // Using existing question
+        const question = availableQuestions.find(q => q.id === selectedQuestionId);
+        if (!question) return;
+        
+        // Check if question is already in template
+        if (template.questions.some(q => q.id === question.id)) {
+          toast({
+            title: "Fehler",
+            description: "Diese Frage ist bereits in der Vorlage enthalten.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Add to template_questions
+        const { error } = await supabase
+          .from('template_questions')
+          .insert({
+            template_id: template.id,
+            question_id: question.id,
+            order_position: template.questions.length
+          });
+          
+        if (error) throw error;
+        
+        const updatedTemplate = {
+          ...template,
+          questions: [...template.questions, question],
+          updatedAt: new Date().toISOString()
+        };
+        
+        setTemplate(updatedTemplate);
+        
+        toast({
+          description: "Bestehende Frage wurde hinzugefügt.",
+        });
+      } else if (newQuestionText.trim()) {
+        // Create new question
+        const { data: questionData, error: questionError } = await supabase
+          .from('questions')
+          .insert({
+            text: newQuestionText
+          })
+          .select()
+          .single();
+          
+        if (questionError) throw questionError;
+        
+        // Add to template_questions
+        const { error: templateQuestionError } = await supabase
+          .from('template_questions')
+          .insert({
+            template_id: template.id,
+            question_id: questionData.id,
+            order_position: template.questions.length
+          });
+          
+        if (templateQuestionError) throw templateQuestionError;
+        
+        const newQuestion: Question = {
+          id: questionData.id,
+          text: questionData.text,
+          createdAt: questionData.created_at,
+          updatedAt: questionData.updated_at
+        };
+        
+        // Update available questions
+        setAvailableQuestions([...availableQuestions, newQuestion]);
+        
+        const updatedTemplate = {
+          ...template,
+          questions: [...template.questions, newQuestion],
+          updatedAt: new Date().toISOString()
+        };
+        
+        setTemplate(updatedTemplate);
+        
+        toast({
+          description: "Neue Frage wurde erstellt und hinzugefügt.",
+        });
+      } else {
+        toast({
+          title: "Fehler",
+          description: "Bitte wählen Sie eine Frage aus oder erstellen Sie eine neue.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       setOpenAddQuestionDialog(false);
+    } catch (error) {
+      console.error('Error adding question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht hinzugefügt werden",
+        variant: "destructive",
+      });
     }
   };
 
@@ -194,8 +363,8 @@ const TemplateDetails = () => {
     setOpenEditQuestionDialog(true);
   };
 
-  const handleSaveEditedQuestion = () => {
-    if (!newQuestionText.trim() || !currentQuestion) {
+  const handleSaveEditedQuestion = async () => {
+    if (!newQuestionText.trim() || !currentQuestion || !template) {
       toast({
         title: "Fehler",
         description: "Der Fragetext darf nicht leer sein.",
@@ -204,13 +373,25 @@ const TemplateDetails = () => {
       return;
     }
 
-    if (template && currentQuestion) {
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .update({
+          text: newQuestionText,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentQuestion.id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
       const updatedQuestions = template.questions.map(q => {
         if (q.id === currentQuestion.id) {
           return {
             ...q,
-            text: newQuestionText,
-            updatedAt: new Date().toISOString()
+            text: data.text,
+            updatedAt: data.updated_at
           };
         }
         return q;
@@ -222,16 +403,37 @@ const TemplateDetails = () => {
         updatedAt: new Date().toISOString()
       });
       
+      // Update in available questions as well
+      const updatedAvailableQuestions = availableQuestions.map(q => {
+        if (q.id === currentQuestion.id) {
+          return {
+            ...q,
+            text: data.text,
+            updatedAt: data.updated_at
+          };
+        }
+        return q;
+      });
+      
+      setAvailableQuestions(updatedAvailableQuestions);
+      
       toast({
         description: "Frage wurde aktualisiert.",
       });
       
       setOpenEditQuestionDialog(false);
+    } catch (error) {
+      console.error('Error updating question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleMoveQuestion = (index: number, direction: 'up' | 'down') => {
-    if (template?.isUsedInSurveys) {
+  const handleMoveQuestion = async (index: number, direction: 'up' | 'down') => {
+    if (!template || template.isUsedInSurveys) {
       toast({
         title: "Fragen können nicht neu angeordnet werden",
         description: "Diese Vorlage wird in aktiven oder geschlossenen Umfragen verwendet. Fragen können nicht neu angeordnet werden.",
@@ -240,29 +442,73 @@ const TemplateDetails = () => {
       return;
     }
     
-    if (!template) return;
-    
-    const newQuestions = [...template.questions];
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     
-    if (newIndex < 0 || newIndex >= newQuestions.length) return;
+    if (newIndex < 0 || newIndex >= template.questions.length) return;
     
-    // Swap questions
-    [newQuestions[index], newQuestions[newIndex]] = [newQuestions[newIndex], newQuestions[index]];
-    
-    setTemplate({
-      ...template,
-      questions: newQuestions,
-      updatedAt: new Date().toISOString()
-    });
-    
-    toast({
-      description: `Frage wurde nach ${direction === 'up' ? 'oben' : 'unten'} verschoben.`,
-    });
+    try {
+      // Get the two template_questions entries we need to update
+      const { data: templateQuestionsData, error: fetchError } = await supabase
+        .from('template_questions')
+        .select('id, question_id, order_position')
+        .eq('template_id', template.id)
+        .in('question_id', [template.questions[index].id, template.questions[newIndex].id]);
+        
+      if (fetchError) throw fetchError;
+      
+      // Find the entries for both questions
+      const sourceQuestionEntry = templateQuestionsData.find(
+        tq => tq.question_id === template.questions[index].id
+      );
+      
+      const targetQuestionEntry = templateQuestionsData.find(
+        tq => tq.question_id === template.questions[newIndex].id
+      );
+      
+      if (!sourceQuestionEntry || !targetQuestionEntry) {
+        throw new Error('Could not find question entries');
+      }
+      
+      // Swap the order positions
+      const { error: updateError1 } = await supabase
+        .from('template_questions')
+        .update({ order_position: targetQuestionEntry.order_position })
+        .eq('id', sourceQuestionEntry.id);
+        
+      if (updateError1) throw updateError1;
+      
+      const { error: updateError2 } = await supabase
+        .from('template_questions')
+        .update({ order_position: sourceQuestionEntry.order_position })
+        .eq('id', targetQuestionEntry.id);
+        
+      if (updateError2) throw updateError2;
+      
+      // Update the local state
+      const newQuestions = [...template.questions];
+      [newQuestions[index], newQuestions[newIndex]] = [newQuestions[newIndex], newQuestions[index]];
+      
+      setTemplate({
+        ...template,
+        questions: newQuestions,
+        updatedAt: new Date().toISOString()
+      });
+      
+      toast({
+        description: `Frage wurde nach ${direction === 'up' ? 'oben' : 'unten'} verschoben.`,
+      });
+    } catch (error) {
+      console.error('Error moving question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht verschoben werden",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRemoveQuestion = (index: number) => {
-    if (template?.isUsedInSurveys) {
+  const handleRemoveQuestion = async (index: number) => {
+    if (!template || template.isUsedInSurveys) {
       toast({
         title: "Fragen können nicht entfernt werden",
         description: "Diese Vorlage wird in aktiven oder geschlossenen Umfragen verwendet. Fragen können nicht entfernt werden.",
@@ -271,19 +517,62 @@ const TemplateDetails = () => {
       return;
     }
     
-    if (!template) return;
-    
-    const newQuestions = template.questions.filter((_, i) => i !== index);
-    
-    setTemplate({
-      ...template,
-      questions: newQuestions,
-      updatedAt: new Date().toISOString()
-    });
-    
-    toast({
-      description: "Frage wurde entfernt.",
-    });
+    try {
+      // Find the template_question entry to delete
+      const { data, error: fetchError } = await supabase
+        .from('template_questions')
+        .select('id')
+        .eq('template_id', template.id)
+        .eq('question_id', template.questions[index].id)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // Delete the entry
+      const { error: deleteError } = await supabase
+        .from('template_questions')
+        .delete()
+        .eq('id', data.id);
+        
+      if (deleteError) throw deleteError;
+      
+      // Update order positions for remaining questions
+      const remainingQuestions = template.questions.filter((_, i) => i !== index);
+      
+      // Only need to update order positions if there are multiple questions
+      if (remainingQuestions.length > 1) {
+        for (let i = 0; i < remainingQuestions.length; i++) {
+          const { error: updateError } = await supabase
+            .from('template_questions')
+            .update({ order_position: i })
+            .eq('template_id', template.id)
+            .eq('question_id', remainingQuestions[i].id);
+            
+          if (updateError) {
+            console.error('Error updating order position:', updateError);
+            // Continue even if this fails
+          }
+        }
+      }
+      
+      // Update local state
+      setTemplate({
+        ...template,
+        questions: remainingQuestions,
+        updatedAt: new Date().toISOString()
+      });
+      
+      toast({
+        description: "Frage wurde entfernt.",
+      });
+    } catch (error) {
+      console.error('Error removing question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht entfernt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
