@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginForm from "@/components/auth/LoginForm";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +13,15 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      console.log("User is authenticated, redirecting to /app");
+      navigate("/app");
+    }
+  }, [user, navigate]);
 
   /**
    * Handle user login with Supabase authentication
@@ -29,7 +37,7 @@ const Index = () => {
         title: "Login successful",
         description: "Welcome back to the Meeting Survey Tool!",
       });
-      // Navigate is handled by auth state change in Layout component
+      // Navigation is now handled by the useEffect hook above
     } catch (error) {
       console.error("Login error:", error);
       toast({
