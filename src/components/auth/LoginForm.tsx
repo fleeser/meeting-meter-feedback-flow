@@ -20,20 +20,20 @@ const LoginForm = ({ onLogin, isLoading }: LoginFormProps) => {
     let isValid = true;
     
     if (!email) {
-      setEmailError("Email is required");
+      setEmailError("E-Mail darf nicht leer sein.");
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError("Email is invalid");
+      setEmailError("Ungültige E-Mail.");
       isValid = false;
     } else {
       setEmailError("");
     }
     
     if (!password) {
-      setPasswordError("Password is required");
+      setPasswordError("Passwort darf nicht leer sein.");
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError("Passwort muss mindestens 6 Zeichen lang sein.");
       isValid = false;
     } else {
       setPasswordError("");
@@ -51,19 +51,19 @@ const LoginForm = ({ onLogin, isLoading }: LoginFormProps) => {
   };
 
   const handleForgotPassword = () => {
-    // In a real app, this would navigate to password reset
-    alert("Password reset functionality would be implemented here");
+    // TODO: Implement password recovery
+    alert("Das Zurücksetzen von Passwörtern ist noch nicht implementiert.");
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-Mail</Label>
           <Input
             id="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="ich@beispiel.de"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={emailError ? "border-red-500" : ""}
@@ -75,13 +75,13 @@ const LoginForm = ({ onLogin, isLoading }: LoginFormProps) => {
         
         <div className="space-y-2">
           <div className="flex justify-between">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Passwort</Label>
             <button
               type="button"
               className="text-sm text-primary-blue hover:underline"
               onClick={handleForgotPassword}
             >
-              Forgot password?
+              Passwort vergessen?
             </button>
           </div>
           <Input
@@ -102,7 +102,7 @@ const LoginForm = ({ onLogin, isLoading }: LoginFormProps) => {
           className="w-full bg-primary-blue hover:bg-primary-dark"
           disabled={isLoading}
         >
-          {isLoading ? "Signing in..." : "Sign in"}
+          {isLoading ? "Lade..." : "Anmelden"}
         </Button>
       </div>
     </form>

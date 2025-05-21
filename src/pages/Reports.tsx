@@ -257,7 +257,7 @@ const Reports = () => {
           </div>
           
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="md:col-span-1">
+            <Card className="md:col-span-3">
               <CardHeader>
                 <CardTitle>Bewertungsverteilung</CardTitle>
                 <CardDescription>Antworten nach Bewertungsstufe</CardDescription>
@@ -288,28 +288,7 @@ const Reports = () => {
               </CardContent>
             </Card>
             
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle>Fragenleistung</CardTitle>
-                <CardDescription>Durchschnittliche Bewertungen nach Fragentyp</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart
-                      data={questionAveragesData}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 4]} />
-                      <Tooltip />
-                      <Bar dataKey="rating" fill="#3498db" />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            
           </div>
         </TabsContent>
         

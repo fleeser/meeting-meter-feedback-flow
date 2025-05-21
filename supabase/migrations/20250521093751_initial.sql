@@ -27,6 +27,12 @@ FOR UPDATE
 TO authenticated 
 USING (auth.uid() = id);
 
+CREATE POLICY "Allow users to create profile" 
+ON public.profiles 
+FOR INSERT 
+TO authenticated 
+WITH CHECK (true);
+
 -- Create questions table with RLS setup
 CREATE TABLE public.questions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -115,6 +121,18 @@ ON public.template_questions
 FOR ALL 
 TO authenticated 
 USING (auth.role() = 'authenticated');
+
+-- Create function to generate a random survey share link
+CREATE OR REPLACE FUNCTION public.generate_share_link() 
+RETURNS TEXT AS $$
+DECLARE
+  base_url TEXT := 'https://meetingfeedback.app/survey/';
+  random_id TEXT;
+BEGIN
+  random_id := encode(gen_random_bytes(8), 'hex');
+  RETURN base_url || random_id;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Create surveys table with all fields (including due_date) and RLS setup
 CREATE TABLE public.surveys (
@@ -218,24 +236,12 @@ FOR SELECT
 TO authenticated 
 USING (auth.role() = 'authenticated');
 
--- Create function to generate a random survey share link
-CREATE OR REPLACE FUNCTION public.generate_share_link() 
-RETURNS TEXT AS $$
-DECLARE
-  base_url TEXT := 'https://meetingfeedback.app/survey/';
-  random_id TEXT;
-BEGIN
-  random_id := encode(gen_random_bytes(8), 'hex');
-  RETURN base_url || random_id;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Create trigger function to handle new user profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, name, email)
-  VALUES (new.id, COALESCE(new.raw_user_meta_data->>'name', 'New User'), new.email);
+  VALUES (new.id, COALESCE(new.raw_user_meta_data->>'name', 'RateLiner'), new.email);
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

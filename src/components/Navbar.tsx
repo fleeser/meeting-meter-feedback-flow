@@ -1,10 +1,8 @@
-
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   FileText, 
   BarChart, 
-  HelpCircle, 
   LogOut, 
   Menu, 
   X, 
@@ -60,7 +58,7 @@ const Navbar = ({ user }: NavbarProps) => {
     >
       <div className="p-4 flex justify-between items-center border-b border-gray-700">
         <h1 className={cn("font-bold", collapsed ? "hidden" : "text-xl")}>
-          Umfrage-Tool
+          RateLine
         </h1>
         <Button
           variant="ghost"

@@ -34,15 +34,15 @@ const Index = () => {
     try {
       await signIn(email, password);
       toast({
-        title: "Login successful",
-        description: "Welcome back to the Meeting Survey Tool!",
+        title: "Anmeldung erfolgreich",
+        description: "Willkommen zurück bei RateLine!",
       });
       // Navigation is now handled by the useEffect hook above
     } catch (error) {
       console.error("Login error:", error);
       toast({
-        title: "Login failed",
-        description: error instanceof Error ? error.message : "Invalid email or password. Please try again.",
+        title: "Anmeldung fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Ungültige Anmeldedaten. Versuchen Sie es erneut.",
         variant: "destructive",
       });
     } finally {
@@ -53,14 +53,14 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-blue to-accent-teal">
       <header className="w-full p-6">
-        <h1 className="text-2xl font-bold text-white">Meeting Survey Tool</h1>
+        <h1 className="text-2xl font-bold text-white">RateLine</h1>
       </header>
       
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="bg-white p-8 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold mb-6 text-center text-secondary-dark">
-              Welcome Back
+              Willkommen zurück
             </h2>
             
             <LoginForm onLogin={handleLogin} isLoading={isLoading} />
@@ -69,7 +69,7 @@ const Index = () => {
       </main>
       
       <footer className="p-4 text-center text-white text-sm">
-        <p>&copy; 2025 Meeting Survey Tool. All rights reserved.</p>
+        <p>&copy; 2025 RateLine. Alle Rechte vorbehalten.</p>
       </footer>
     </div>
   );

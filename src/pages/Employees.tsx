@@ -466,7 +466,7 @@ const Employees = () => {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle Status</SelectItem>
+                <SelectItem value="all">Alle Stati</SelectItem>
                 <SelectItem value="active">Aktiv</SelectItem>
                 <SelectItem value="inactive">Inaktiv</SelectItem>
               </SelectContent>

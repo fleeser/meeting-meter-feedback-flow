@@ -440,7 +440,7 @@ const Dashboard = () => {
             <SelectValue placeholder="Nach Status filtern" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle Status</SelectItem>
+            <SelectItem value="all">Alle Stati</SelectItem>
             <SelectItem value="draft">Entwurf</SelectItem>
             <SelectItem value="active">Aktiv</SelectItem>
             <SelectItem value="closed">Geschlossen</SelectItem>
@@ -507,7 +507,7 @@ const Dashboard = () => {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Umfrage Name</FormLabel>
+                    <FormLabel>Titel</FormLabel>
                     <FormControl>
                       <Input placeholder="Name der Umfrage eingeben" {...field} />
                     </FormControl>
@@ -549,7 +549,7 @@ const Dashboard = () => {
                     <FormLabel>Beschreibung</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Beschreiben Sie den Zweck der Umfrage" 
+                        placeholder="Beschreiben Sie den Zweck dieser Umfrage." 
                         className="resize-none" 
                         rows={3} 
                         {...field} 
@@ -573,27 +573,6 @@ const Dashboard = () => {
                       </div>
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="isAnonymous"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Anonyme Umfrage</FormLabel>
-                      <FormDescription>
-                        Die Antworten der Mitarbeiter werden anonym erfasst.
-                      </FormDescription>
-                    </div>
                   </FormItem>
                 )}
               />
