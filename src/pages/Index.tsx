@@ -29,7 +29,7 @@ const Index = () => {
         title: "Login successful",
         description: "Welcome back to the Meeting Survey Tool!",
       });
-      navigate("/app");
+      // Navigate is handled by auth state change in Layout component
     } catch (error) {
       console.error("Login error:", error);
       toast({
