@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PlusCircle, Search, Calendar, Users, X, Save, Trash2 } from "lucide-react";
-import { Survey, Template, User } from "@/lib/types";
+import { Survey, Template, User, Question, SurveyStatus } from "@/lib/types";
 import SurveyCard from "@/components/surveys/SurveyCard";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -146,7 +147,14 @@ const Dashboard = () => {
 
           // Map template questions
           const templateQuestions = templatesData.find(t => t.id === survey.template_id)?.questions || [];
-          const questions = templateQuestions.map(tq => tq.question);
+          
+          // Convert database format questions to app format
+          const mappedQuestions: Question[] = templateQuestions.map(tq => ({
+            id: tq.question.id,
+            text: tq.question.text,
+            createdAt: tq.question.created_at,
+            updatedAt: tq.question.updated_at
+          }));
           
           // Map participants to assigned employees
           const assignedEmployees = participantsData.map(p => {
@@ -164,23 +172,26 @@ const Dashboard = () => {
             };
           });
 
+          // Validate survey status conforms to SurveyStatus type
+          const statusValue = survey.status as SurveyStatus;
+          
           // Build the formatted survey object
           formattedSurveys.push({
             id: survey.id,
             name: survey.name,
             description: survey.description,
-            status: survey.status,
+            status: statusValue,
             createdAt: survey.created_at,
             updatedAt: survey.updated_at,
             template: {
               id: survey.template.id,
               name: survey.template.name,
-              questions: questions || [],
-              createdAt: '', // We don't have this in the join
-              updatedAt: '',
+              questions: mappedQuestions,
+              createdAt: survey.created_at, // Using survey creation time as fallback
+              updatedAt: survey.updated_at,
               isUsedInSurveys: true
             },
-            questions: questions || [],
+            questions: mappedQuestions,
             assignedEmployees,
             responses: responsesData.length,
             shareLink: survey.share_link,
@@ -191,12 +202,17 @@ const Dashboard = () => {
 
         // Format templates data
         const formattedTemplates: Template[] = templatesData.map(temp => {
-          const questions = temp.questions ? temp.questions.map(q => q.question) : [];
+          const mappedQuestions: Question[] = temp.questions ? temp.questions.map(q => ({
+            id: q.question.id,
+            text: q.question.text,
+            createdAt: q.question.created_at,
+            updatedAt: q.question.updated_at
+          })) : [];
           
           return {
             id: temp.id,
             name: temp.name,
-            questions: questions || [],
+            questions: mappedQuestions,
             createdAt: temp.created_at,
             updatedAt: temp.updated_at,
             isUsedInSurveys: temp.is_used_in_surveys
@@ -319,7 +335,7 @@ const Dashboard = () => {
           template_id: data.templateId,
           due_date: data.dueDate || null,
           is_anonymous: data.isAnonymous,
-          status: 'Draft',
+          status: 'Draft' as SurveyStatus,
           created_by: user?.id,
           share_link: shareLink
         })
@@ -347,7 +363,7 @@ const Dashboard = () => {
       const createdSurvey: Survey = {
         id: newSurvey.id,
         name: newSurvey.name,
-        status: newSurvey.status,
+        status: newSurvey.status as SurveyStatus,
         template: selectedTemplate,
         questions: selectedTemplate.questions,
         assignedEmployees,
