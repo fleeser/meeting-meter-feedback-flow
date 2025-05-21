@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Session } from '@supabase/supabase-js';
 
 /**
@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   /**
    * Initialize auth state from Supabase session
@@ -169,8 +170,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Explicitly navigate to app route after successful login
       navigate("/app");
-      
-      return data;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,89 +35,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-
-// Mock data for demonstration
-const mockSurveys: Survey[] = [
-  {
-    id: "1",
-    name: "Projekt Kickoff Meeting Feedback",
-    status: "Active",
-    template: { id: "1", name: "Meeting Feedback", questions: [], createdAt: "2025-05-10", updatedAt: "2025-05-10", isUsedInSurveys: true },
-    questions: [],
-    assignedEmployees: [
-      { id: "1", name: "John Smith", email: "john@example.com" },
-      { id: "2", name: "Sarah Johnson", email: "sarah@example.com" }
-    ],
-    responses: 12,
-    createdAt: "2025-05-10T10:00:00Z",
-    updatedAt: "2025-05-10T10:00:00Z",
-    shareLink: "https://survey.example.com/s/1"
-  },
-  {
-    id: "2",
-    name: "Wöchentliches Team-Sync Evaluation",
-    status: "Draft",
-    template: { id: "2", name: "Team Meeting", questions: [], createdAt: "2025-05-09", updatedAt: "2025-05-09", isUsedInSurveys: true },
-    questions: [],
-    assignedEmployees: [
-      { id: "1", name: "John Smith", email: "john@example.com" }
-    ],
-    responses: 0,
-    createdAt: "2025-05-09T14:30:00Z",
-    updatedAt: "2025-05-09T14:30:00Z",
-    shareLink: "https://survey.example.com/s/2"
-  },
-  {
-    id: "3",
-    name: "Kundenpräsentation Feedback",
-    status: "Closed",
-    template: { id: "1", name: "Meeting Feedback", questions: [], createdAt: "2025-05-01", updatedAt: "2025-05-01", isUsedInSurveys: true },
-    questions: [],
-    assignedEmployees: [
-      { id: "3", name: "Mike Wilson", email: "mike@example.com" },
-      { id: "4", name: "Emma Davis", email: "emma@example.com" }
-    ],
-    responses: 8,
-    createdAt: "2025-05-01T09:15:00Z",
-    updatedAt: "2025-05-08T17:00:00Z",
-    shareLink: "https://survey.example.com/s/3"
-  }
-];
-
-// Mock templates for survey creation
-const mockTemplates: Template[] = [
-  {
-    id: "1",
-    name: "Meeting Feedback",
-    questions: [
-      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-      { id: "q2", text: "Wie effektiv war das Meeting bei der Behandlung der angegebenen Ziele?", createdAt: "", updatedAt: "" },
-    ],
-    createdAt: "2025-05-01",
-    updatedAt: "2025-05-01",
-    isUsedInSurveys: true
-  },
-  {
-    id: "2",
-    name: "Team Meeting",
-    questions: [
-      { id: "q1", text: "Wie würden Sie die Kommunikationsklarheit während des Meetings bewerten?", createdAt: "", updatedAt: "" },
-      { id: "q4", text: "Wie gut wurde das Meeting moderiert oder erleichtert?", createdAt: "", updatedAt: "" },
-    ],
-    createdAt: "2025-05-01",
-    updatedAt: "2025-05-01",
-    isUsedInSurveys: true
-  }
-];
-
-// Mock employees for survey assignment
-const mockEmployees: User[] = [
-  { id: "1", name: "John Smith", email: "john@example.com", role: "User", department: "Marketing", active: true },
-  { id: "2", name: "Sarah Johnson", email: "sarah@example.com", role: "User", department: "Sales", active: true },
-  { id: "3", name: "Mike Wilson", email: "mike@example.com", role: "User", department: "IT", active: true },
-  { id: "4", name: "Emma Davis", email: "emma@example.com", role: "User", department: "HR", active: true },
-  { id: "5", name: "David Brown", email: "david@example.com", role: "User", department: "Finance", active: true },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SurveyFormData {
   name: string;
@@ -141,6 +59,7 @@ const Dashboard = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<SurveyFormData>({
     defaultValues: {
@@ -154,14 +73,153 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    // This would be API calls in a real app
-    setTimeout(() => {
-      setSurveys(mockSurveys);
-      setTemplates(mockTemplates);
-      setEmployees(mockEmployees);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    async function fetchData() {
+      try {
+        // Fetch surveys
+        const { data: surveysData, error: surveysError } = await supabase
+          .from('surveys')
+          .select(`
+            *,
+            template:template_id (
+              id,
+              name
+            )
+          `)
+          .order('created_at', { ascending: false });
+        
+        if (surveysError) throw surveysError;
+        
+        // Fetch templates
+        const { data: templatesData, error: templatesError } = await supabase
+          .from('templates')
+          .select(`
+            *,
+            questions:template_questions (
+              question:question_id (*)
+            )
+          `);
+        
+        if (templatesError) throw templatesError;
+        
+        // Fetch profiles (employees)
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('active', true);
+        
+        if (employeesError) throw employeesError;
+
+        // Format employees data
+        const formattedEmployees: User[] = employeesData.map(emp => ({
+          id: emp.id,
+          name: emp.name,
+          email: emp.email,
+          role: emp.role as "Admin" | "Moderator" | "User",
+          department: emp.department || undefined,
+          position: emp.position || undefined,
+          active: emp.active,
+          joinDate: emp.join_date || undefined,
+          profileImage: emp.profile_image || undefined
+        }));
+
+        // For each survey, fetch its participants
+        const formattedSurveys: Survey[] = [];
+        
+        for (const survey of surveysData) {
+          // Fetch participants for this survey
+          const { data: participantsData, error: participantsError } = await supabase
+            .from('survey_participants')
+            .select(`
+              profile:profile_id (*)
+            `)
+            .eq('survey_id', survey.id);
+            
+          if (participantsError) throw participantsError;
+          
+          // Count responses for this survey
+          const { data: responsesData, error: responsesError } = await supabase
+            .from('survey_responses')
+            .select('id', { count: 'exact' })
+            .eq('survey_id', survey.id);
+            
+          if (responsesError) throw responsesError;
+
+          // Map template questions
+          const templateQuestions = templatesData.find(t => t.id === survey.template_id)?.questions || [];
+          const questions = templateQuestions.map(tq => tq.question);
+          
+          // Map participants to assigned employees
+          const assignedEmployees = participantsData.map(p => {
+            const profile = p.profile;
+            return {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              role: profile.role as "Admin" | "Moderator" | "User",
+              department: profile.department || undefined,
+              position: profile.position || undefined,
+              active: profile.active,
+              joinDate: profile.join_date || undefined,
+              profileImage: profile.profile_image || undefined
+            };
+          });
+
+          // Build the formatted survey object
+          formattedSurveys.push({
+            id: survey.id,
+            name: survey.name,
+            description: survey.description,
+            status: survey.status,
+            createdAt: survey.created_at,
+            updatedAt: survey.updated_at,
+            template: {
+              id: survey.template.id,
+              name: survey.template.name,
+              questions: questions || [],
+              createdAt: '', // We don't have this in the join
+              updatedAt: '',
+              isUsedInSurveys: true
+            },
+            questions: questions || [],
+            assignedEmployees,
+            responses: responsesData.length,
+            shareLink: survey.share_link,
+            dueDate: survey.due_date,
+            isAnonymous: survey.is_anonymous
+          });
+        }
+
+        // Format templates data
+        const formattedTemplates: Template[] = templatesData.map(temp => {
+          const questions = temp.questions ? temp.questions.map(q => q.question) : [];
+          
+          return {
+            id: temp.id,
+            name: temp.name,
+            questions: questions || [],
+            createdAt: temp.created_at,
+            updatedAt: temp.updated_at,
+            isUsedInSurveys: temp.is_used_in_surveys
+          };
+        });
+
+        setTemplates(formattedTemplates);
+        setEmployees(formattedEmployees);
+        setSurveys(formattedSurveys);
+      } catch (error) {
+        console.error('Error fetching data for dashboard:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load data. Please try again later.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, [toast]);
 
   const filteredSurveys = surveys
     .filter(survey => 
@@ -189,15 +247,32 @@ const Dashboard = () => {
     setOpenDeleteDialog(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!currentSurvey) return;
 
-    const updatedSurveys = surveys.filter(s => s.id !== currentSurvey.id);
-    setSurveys(updatedSurveys);
-    setOpenDeleteDialog(false);
-    toast({
-      description: `Umfrage "${currentSurvey.name}" wurde gelöscht.`,
-    });
+    try {
+      // Delete survey
+      const { error } = await supabase
+        .from('surveys')
+        .delete()
+        .eq('id', currentSurvey.id);
+
+      if (error) throw error;
+
+      const updatedSurveys = surveys.filter(s => s.id !== currentSurvey.id);
+      setSurveys(updatedSurveys);
+      setOpenDeleteDialog(false);
+      toast({
+        description: `Umfrage "${currentSurvey.name}" wurde gelöscht.`,
+      });
+    } catch (error) {
+      console.error('Error deleting survey:', error);
+      toast({
+        title: "Fehler",
+        description: "Umfrage konnte nicht gelöscht werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmployeeSelection = (employeeId: string) => {
@@ -210,7 +285,7 @@ const Dashboard = () => {
     });
   };
 
-  const onSubmit = (data: SurveyFormData) => {
+  const onSubmit = async (data: SurveyFormData) => {
     const selectedTemplate = templates.find(t => t.id === data.templateId);
     
     if (!selectedTemplate) {
@@ -231,30 +306,73 @@ const Dashboard = () => {
       return;
     }
 
-    const now = new Date().toISOString();
-    const assignedEmployees = employees.filter(e => selectedEmployees.includes(e.id));
-    
-    const newSurvey: Survey = {
-      id: `survey-${Date.now()}`,
-      name: data.name,
-      status: "Draft",
-      template: selectedTemplate,
-      questions: [...selectedTemplate.questions],
-      assignedEmployees,
-      responses: 0,
-      createdAt: now,
-      updatedAt: now,
-      shareLink: `https://survey.example.com/s/${Date.now()}`,
-      description: data.description,
-      dueDate: data.dueDate,
-      isAnonymous: data.isAnonymous
-    };
+    try {
+      // Generate share link - in a real app this could be done with a Supabase function
+      const shareLink = `https://survey.example.com/s/${Date.now()}`;
+      
+      // Insert new survey
+      const { data: newSurvey, error: surveyError } = await supabase
+        .from('surveys')
+        .insert({
+          name: data.name,
+          description: data.description,
+          template_id: data.templateId,
+          due_date: data.dueDate || null,
+          is_anonymous: data.isAnonymous,
+          status: 'Draft',
+          created_by: user?.id,
+          share_link: shareLink
+        })
+        .select()
+        .single();
+      
+      if (surveyError) throw surveyError;
+      
+      // Insert survey participants
+      const participantInserts = selectedEmployees.map(employeeId => ({
+        survey_id: newSurvey.id,
+        profile_id: employeeId
+      }));
+      
+      const { error: participantsError } = await supabase
+        .from('survey_participants')
+        .insert(participantInserts);
+      
+      if (participantsError) throw participantsError;
+      
+      // Update UI
+      const assignedEmployees = employees
+        .filter(e => selectedEmployees.includes(e.id));
 
-    setSurveys([newSurvey, ...surveys]);
-    setOpenCreateDialog(false);
-    toast({
-      description: `Umfrage "${data.name}" wurde erfolgreich erstellt.`,
-    });
+      const createdSurvey: Survey = {
+        id: newSurvey.id,
+        name: newSurvey.name,
+        status: newSurvey.status,
+        template: selectedTemplate,
+        questions: selectedTemplate.questions,
+        assignedEmployees,
+        responses: 0,
+        createdAt: newSurvey.created_at,
+        updatedAt: newSurvey.updated_at,
+        shareLink: newSurvey.share_link,
+        description: newSurvey.description,
+        dueDate: newSurvey.due_date,
+        isAnonymous: newSurvey.is_anonymous
+      };
+
+      setSurveys([createdSurvey, ...surveys]);
+      setOpenCreateDialog(false);
+      toast({
+        description: `Umfrage "${data.name}" wurde erfolgreich erstellt.`,
+      });
+    } catch (error) {
+      console.error('Error creating survey:', error);
+      toast({
+        title: "Fehler",
+        description: "Umfrage konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {

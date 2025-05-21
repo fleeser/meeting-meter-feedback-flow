@@ -202,6 +202,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          due_date: string | null
           id: string
           is_anonymous: boolean
           name: string
@@ -214,6 +215,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          due_date?: string | null
           id?: string
           is_anonymous?: boolean
           name: string
@@ -226,6 +228,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          due_date?: string | null
           id?: string
           is_anonymous?: boolean
           name?: string

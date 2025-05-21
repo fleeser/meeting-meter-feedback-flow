@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for demonstration
 const mockQuestions: Question[] = [
@@ -58,14 +59,43 @@ const Questions = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [newQuestionText, setNewQuestionText] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const { user } = useAuth();
 
+  // Fetch questions from Supabase
   useEffect(() => {
-    // This would be an API call in a real app
-    setTimeout(() => {
-      setQuestions(mockQuestions);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    async function fetchQuestions() {
+      try {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const formattedQuestions: Question[] = data.map(q => ({
+          id: q.id,
+          text: q.text,
+          createdAt: q.created_at,
+          updatedAt: q.updated_at
+        }));
+
+        setQuestions(formattedQuestions);
+      } catch (error) {
+        console.error('Error fetching questions:', error);
+        toast({
+          title: "Fehler",
+          description: "Fragen konnten nicht geladen werden",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchQuestions();
+  }, [toast]);
 
   const filteredQuestions = questions.filter(question =>
     question.text.toLowerCase().includes(searchQuery.toLowerCase())
@@ -87,7 +117,7 @@ const Questions = () => {
     setOpenDeleteDialog(true);
   };
 
-  const handleSaveNewQuestion = () => {
+  const handleSaveNewQuestion = async () => {
     if (!newQuestionText.trim()) {
       toast({
         title: "Fehler",
@@ -97,22 +127,41 @@ const Questions = () => {
       return;
     }
 
-    const now = new Date().toISOString();
-    const newQuestion: Question = {
-      id: `q${Date.now()}`,
-      text: newQuestionText,
-      createdAt: now,
-      updatedAt: now
-    };
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .insert({
+          text: newQuestionText,
+          created_by: user?.id
+        })
+        .select()
+        .single();
 
-    setQuestions([...questions, newQuestion]);
-    setOpenCreateDialog(false);
-    toast({
-      description: "Frage wurde erstellt"
-    });
+      if (error) throw error;
+
+      const newQuestion: Question = {
+        id: data.id,
+        text: data.text,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+
+      setQuestions([newQuestion, ...questions]);
+      setOpenCreateDialog(false);
+      toast({
+        description: "Frage wurde erstellt"
+      });
+    } catch (error) {
+      console.error('Error creating question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSaveEditedQuestion = () => {
+  const handleSaveEditedQuestion = async () => {
     if (!currentQuestion || !newQuestionText.trim()) {
       toast({
         title: "Fehler",
@@ -122,33 +171,70 @@ const Questions = () => {
       return;
     }
 
-    const updatedQuestions = questions.map(q => {
-      if (q.id === currentQuestion.id) {
-        return {
-          ...q,
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .update({
           text: newQuestionText,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return q;
-    });
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentQuestion.id)
+        .select()
+        .single();
 
-    setQuestions(updatedQuestions);
-    setOpenEditDialog(false);
-    toast({
-      description: "Frage wurde aktualisiert"
-    });
+      if (error) throw error;
+
+      const updatedQuestions = questions.map(q => {
+        if (q.id === currentQuestion.id) {
+          return {
+            ...q,
+            text: data.text,
+            updatedAt: data.updated_at
+          };
+        }
+        return q;
+      });
+
+      setQuestions(updatedQuestions);
+      setOpenEditDialog(false);
+      toast({
+        description: "Frage wurde aktualisiert"
+      });
+    } catch (error) {
+      console.error('Error updating question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht aktualisiert werden",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!currentQuestion) return;
 
-    const updatedQuestions = questions.filter(q => q.id !== currentQuestion.id);
-    setQuestions(updatedQuestions);
-    setOpenDeleteDialog(false);
-    toast({
-      description: "Frage wurde gelöscht"
-    });
+    try {
+      const { error } = await supabase
+        .from('questions')
+        .delete()
+        .eq('id', currentQuestion.id);
+
+      if (error) throw error;
+
+      const updatedQuestions = questions.filter(q => q.id !== currentQuestion.id);
+      setQuestions(updatedQuestions);
+      setOpenDeleteDialog(false);
+      toast({
+        description: "Frage wurde gelöscht"
+      });
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      toast({
+        title: "Fehler",
+        description: "Frage konnte nicht gelöscht werden",
+        variant: "destructive",
+      });
+    }
   };
 
   // Format date to be more readable
